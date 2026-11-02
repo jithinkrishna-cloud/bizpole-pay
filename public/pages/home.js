@@ -70,7 +70,7 @@
       <div class="grid g3">
         <div class="card"><div class="between hm-h"><h3><span class="hm-hi">${ic('pulse')}</span>Gateway health</h3><button class="btn sm" id="hr"><i data-icon=refresh-cw class=li></i> Refresh</button></div>
           <div class="tabs" style="margin-bottom:12px"><button class="on" data-h="a">Active downtime</button><button data-h="p">Past downtime</button></div>
-          <div id="hbody"><div class="hm-ok"><div><b><span class="dot"></span>All payment modes are working</b><span class="muted" id="ht">As of ${fmtDate(new Date())}</span></div><span class="ck"><i class="ph-bold ph-check" aria-hidden="true"></i></span></div></div></div>
+          <div id="hbody"><div class="hm-ok"><div><b><span class="dot"></span>All payment modes are working</b><span class="muted" id="ht">As of ${fmtDate(new Date())}</span></div><span class="hm-ck"><i class="ph-bold ph-check" aria-hidden="true"></i></span></div></div></div>
         <div class="card"><div class="hm-h"><h3><span class="hm-hi">${ic('layers')}</span>Payment modes</h3></div>
           <div class="hm-list">${['UPI', 'Credit card', 'Debit card', 'Net banking', 'Wallets', 'EMI'].map(m => `<div><span>${m}</span>${liveLocked() && isLive() ? '<span class="pill">Activate</span>' : '<span class="pill ok">Active</span>'}</div>`).join('')}</div></div>
         <div class="card"><div class="hm-h"><h3><span class="hm-hi">${ic('bolt')}</span>Go live your way</h3></div>
@@ -87,7 +87,7 @@
     document.querySelectorAll('[data-h]').forEach(b => b.onclick = () => {
       document.querySelectorAll('[data-h]').forEach(x => x.classList.toggle('on', x === b));
       $('#hbody').innerHTML = b.dataset.h === 'a'
-        ? `<div class="hm-ok"><div><b><span class="dot"></span>All payment modes are working</b><span class="muted" id="ht">As of ${fmtDate(new Date())}</span></div><span class="ck"><i class="ph-bold ph-check" aria-hidden="true"></i></span></div>`
+        ? `<div class="hm-ok"><div><b><span class="dot"></span>All payment modes are working</b><span class="muted" id="ht">As of ${fmtDate(new Date())}</span></div><span class="hm-ck"><i class="ph-bold ph-check" aria-hidden="true"></i></span></div>`
         : `<div class="hm-list"><div><span><span class="dot warn"></span><b>Net banking · ICICI</b><small class="muted" style="display:block">Degraded · 31 Oct, 01:10–01:45</small></span><span class="pill warn">Resolved</span></div>
            <div><span><span class="dot bad"></span><b>UPI · one PSP</b><small class="muted" style="display:block">Down · 29 Oct, 22:05–22:20</small></span><span class="pill warn">Resolved</span></div></div>`;
     });
@@ -134,8 +134,8 @@
     .hm-donut li{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #EFECE6;font-size:14px}
     .hm-donut li:last-child{border-bottom:0}.hm-donut li i{width:12px;height:12px;border-radius:50%;flex:none}.hm-donut li span{flex:1}
     .hm-ok{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 0}
-    .hm-ok b{display:block}.hm-ok .muted{display:block;font-size:13px;margin:4px 0 0 14px}
-    .hm-ok .ck{width:44px;height:44px;border-radius:12px;background:var(--ok-soft);color:var(--ok);display:grid;place-items:center;font-size:22px;font-weight:700}
+    .hm-ok b{display:flex;align-items:center;gap:8px}.hm-ok b .dot{margin:0}.hm-ok .muted{display:block;font-size:13px;margin:4px 0 0 14px}
+    .hm-ok .hm-ck{flex:none;width:44px;height:44px;border-radius:12px;background:var(--ok-soft);color:var(--ok);display:grid;place-items:center;font-size:22px;line-height:1}
     .hm-list>div{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #EFECE6}
     .hm-list>div:last-child{border-bottom:0}
     .hm-go a{display:flex;align-items:center;gap:14px;padding:12px 4px;border-bottom:1px solid #EFECE6;border-radius:10px}
