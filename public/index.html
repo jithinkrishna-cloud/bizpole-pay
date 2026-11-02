@@ -1,0 +1,427 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bizpole Pay — Payments for Indian Businesses</title>
+<meta name="description" content="Accept UPI, cards, net banking, wallets and EMI. One dashboard for transactions, settlements, refunds and payment links. Payments processed by PayU.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    /* Charcoal #211F24 · Solar yellow #F1C64B · Coral #E65F55 · Warm paper #F6F4EF · Graphite #343138 · Soft neutral #EEECE7 */
+    --ink:#211F24; --ink-2:#343138; --muted:#6F6A66; --line:#E3E0D9; --soft:#EEECE7;
+    --bg:#F6F4EF; --card:#FFFEFB; --brand:#E65F55; --brand-hover:#D14E44; --brand-soft:#FBE8E6; --brand-2:#F1C64B;
+    --accent:#F1C64B; --accent-soft:#FCF3D9; --ok:#2F8F5B; --warn:#B7861B;
+    --radius:14px; --shadow:0 10px 30px -12px rgba(33,31,36,.18);
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;font-family:"Instrument Sans",system-ui,sans-serif;color:var(--ink);background:var(--bg);line-height:1.55}
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+  .btn{display:inline-flex;align-items:center;gap:8px;border-radius:999px;padding:11px 20px;font-weight:600;font-size:15px;border:1.5px solid transparent;cursor:pointer;transition:.15s}
+  .btn-primary{background:var(--brand);color:#fff}
+  .btn-primary:hover{background:var(--brand-hover)}
+  .btn-ghost{border-color:var(--line);background:var(--card)}
+  .btn-ghost:hover{border-color:var(--brand)}
+  .tag{display:inline-block;font:500 12px "JetBrains Mono",monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--ink);background:var(--accent-soft);border-radius:6px;padding:4px 8px}
+
+  /* header */
+  header{position:sticky;top:0;z-index:20;background:rgba(246,244,239,.88);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+  .nav{display:flex;align-items:center;gap:28px;height:68px}
+  .logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:20px;letter-spacing:-.02em}
+  .logo i{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,var(--accent) 0 50%,var(--brand) 50% 100%);display:block}
+  .nav ul{display:flex;gap:24px;list-style:none;margin:0;padding:0;font-weight:500;color:var(--ink-2)}
+  .nav ul a:hover{color:var(--brand)}
+  .nav .right{margin-left:auto;display:flex;gap:10px}
+  .menu-btn{display:none;margin-left:auto;background:none;border:0;font-size:24px}
+
+  /* hero */
+  .hero{padding:72px 0 56px;display:grid;grid-template-columns:1.05fr .95fr;gap:48px;align-items:center}
+  .hero h1{font-size:clamp(36px,5vw,58px);line-height:1.05;letter-spacing:-.035em;margin:14px 0 18px}
+  .hero h1 em{font-style:normal;color:var(--brand);background:linear-gradient(transparent 72%,var(--accent-soft) 72%,var(--accent-soft) 94%,transparent 94%)}
+  .hero p.lead{font-size:18px;color:var(--muted);max-width:520px;margin:0 0 28px}
+  .hero .ctas{display:flex;gap:12px;flex-wrap:wrap}
+  .stats{display:flex;gap:36px;margin-top:40px;flex-wrap:wrap}
+  .stats b{display:block;font-size:26px;letter-spacing:-.02em}
+  .stats span{color:var(--muted);font-size:14px}
+
+  /* sign-in card */
+  .auth{background:var(--card);border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow);padding:30px;max-width:440px;justify-self:end;width:100%}
+  .auth h2{margin:0 0 4px;font-size:22px;letter-spacing:-.02em}
+  .auth .sub{color:var(--muted);margin:0 0 22px;font-size:14px}
+  .tabs{display:flex;background:var(--soft);border-radius:10px;padding:4px;margin-bottom:18px}
+  .tabs button{flex:1;border:0;background:none;padding:9px;border-radius:8px;font:600 14px inherit;color:var(--muted);cursor:pointer}
+  .tabs button[aria-selected=true]{background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+  label{display:block;font-size:13px;font-weight:600;margin:14px 0 6px}
+  input{width:100%;padding:12px 14px;border:1.5px solid var(--line);border-radius:10px;font:15px inherit;background:var(--card)}
+  input:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 4px var(--brand-soft)}
+  .row{display:flex;justify-content:space-between;margin:10px 0 18px;font-size:13px}
+  .row a{color:var(--brand);font-weight:600}
+  .auth .btn{width:100%;justify-content:center}
+  .or{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:12px;margin:14px 0}
+  .or:before,.or:after{content:"";flex:1;height:1px;background:var(--line)}
+  .fine{font-size:12px;color:var(--muted);text-align:center;margin-top:16px}
+  .hidden{display:none}
+
+  section{padding:72px 0}
+  .sec-head{max-width:640px;margin-bottom:36px}
+  .sec-head h2{font-size:clamp(28px,3.4vw,40px);letter-spacing:-.03em;line-height:1.1;margin:12px 0 10px}
+  .sec-head p{color:var(--muted);margin:0}
+
+  /* methods strip */
+  .methods{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px}
+  .methods span{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:8px 14px;font-weight:500;font-size:14px}
+
+  /* product grid */
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:24px;transition:.2s}
+  .card:hover{transform:translateY(-3px);box-shadow:var(--shadow)}
+  .card .ic{width:40px;height:40px;border-radius:10px;display:grid;place-items:center;background:var(--accent-soft);color:var(--ink);font-size:20px;margin-bottom:14px}
+  .card h3{margin:0 0 6px;font-size:18px}
+  .card p{margin:0;color:var(--muted);font-size:15px}
+
+  /* dashboard preview */
+  .dash{background:var(--ink);border-radius:22px;padding:14px;box-shadow:0 40px 80px -30px rgba(33,31,36,.55)}
+  .dash-in{display:grid;grid-template-columns:210px 1fr;background:var(--card);border-radius:14px;overflow:hidden;min-height:470px}
+  .side{background:var(--ink);border-right:1px solid var(--ink);color:#D8D5D0;padding:16px 12px;font-size:13.5px}
+  .side h6{font:500 10.5px "JetBrains Mono",monospace;letter-spacing:.08em;color:var(--muted);margin:16px 8px 6px}
+  .side a{display:block;padding:7px 10px;border-radius:8px;color:var(--ink-2)}
+  .side a{color:#D8D5D0!important}
+  .side h6{color:#8E8A92!important}
+  .side a.on{background:var(--ink-2);color:#fff!important;font-weight:600;box-shadow:inset 3px 0 0 var(--accent)}
+  .main{padding:18px 22px}
+  .topbar{display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+  .mid{font:500 12px "JetBrains Mono",monospace;background:var(--soft);border-radius:6px;padding:5px 8px}
+  .mode{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600}
+  .switch{width:36px;height:20px;border-radius:999px;background:var(--warn);position:relative;cursor:pointer;border:0}
+  .switch:after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--card);transition:.2s}
+  .switch.live{background:var(--ok)}
+  .switch.live:after{left:18px}
+  .banner{background:var(--accent-soft);color:#6B5208;border-radius:8px;padding:8px 12px;font-size:13px;margin-bottom:14px}
+  .banner.live{background:#E4F2EA;color:#24704A}
+  .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px}
+  .kpi{border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+  .kpi small{color:var(--muted);font-size:12px}
+  .kpi b{display:block;font-size:22px;letter-spacing:-.02em;margin:2px 0}
+  .kpi span{font-size:12px;color:var(--muted)}
+  .split{display:grid;grid-template-columns:1.4fr 1fr;gap:12px}
+  .panel{border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+  .panel h5{margin:0 0 10px;font-size:13px}
+  .bars{display:flex;align-items:flex-end;gap:8px;height:110px}
+  .bars i{flex:1;background:linear-gradient(180deg,var(--ink-2),var(--ink));border-radius:5px 5px 2px 2px;opacity:.9}
+  .steps{list-style:none;margin:0;padding:0;font-size:13px}
+  .steps li{display:flex;align-items:center;gap:8px;padding:5px 0}
+  .steps li:before{content:"";width:14px;height:14px;border-radius:50%;border:2px solid var(--line)}
+  .steps li.done:before{background:var(--ok);border-color:var(--ok)}
+  .prog{height:6px;background:var(--soft);border-radius:9px;margin:4px 0 10px;overflow:hidden}
+  .prog i{display:block;height:100%;width:40%;background:var(--ok)}
+  .health{display:flex;align-items:center;gap:8px;font-size:13px;margin-top:12px}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 4px #D5EADC}
+
+  /* integration options */
+  .opts{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+  .opt{border:1.5px solid var(--line);border-radius:var(--radius);padding:24px;background:var(--card)}
+  .opt .time{font:500 12px "JetBrains Mono",monospace;color:var(--accent)}
+  .opt h3{margin:8px 0 6px}
+  .opt p{color:var(--muted);margin:0;font-size:15px}
+
+  /* dev */
+  .dev{display:grid;grid-template-columns:1fr 1.1fr;gap:40px;align-items:center}
+  pre{background:var(--ink);color:#EEECE7;border-radius:16px;padding:22px;overflow:auto;font:13px/1.6 "JetBrains Mono",monospace;margin:0}
+  pre .k{color:#F1C64B}.c{color:#8E8A92}.s{color:#F2A39C}
+  .checks{list-style:none;padding:0;margin:20px 0 0}
+  .checks li{padding:6px 0 6px 26px;position:relative}
+  .checks li:before{content:"✓";position:absolute;left:0;color:var(--ok);font-weight:700}
+
+  .cta{background:radial-gradient(80% 120% at 100% 0%,rgba(241,198,75,.28),transparent 60%),var(--ink);color:#F6F4EF;border-radius:24px;padding:48px;display:flex;align-items:center;gap:24px;flex-wrap:wrap}
+  .cta h2{margin:0;font-size:clamp(26px,3vw,36px);letter-spacing:-.03em;flex:1;min-width:260px}
+  .cta .btn-primary{background:var(--brand);color:#fff}
+
+  footer{border-top:1px solid var(--line);padding:40px 0;color:var(--muted);font-size:14px}
+  .foot{display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap}
+  .foot ul{list-style:none;padding:0;margin:0;display:flex;gap:20px;flex-wrap:wrap}
+
+  @media (max-width:960px){
+    .hero,.dev{grid-template-columns:1fr}
+    .auth{justify-self:stretch;max-width:none}
+    .grid,.opts{grid-template-columns:1fr 1fr}
+    .dash-in{grid-template-columns:1fr}
+    .side{display:none}
+  }
+  @media (max-width:640px){
+    .nav ul,.nav .right{display:none}
+    .menu-btn{display:block}
+    .nav.open ul,.nav.open .right{display:flex;flex-direction:column;position:absolute;top:68px;left:0;right:0;background:var(--card);padding:16px 20px;border-bottom:1px solid var(--line)}
+    .nav.open .right{top:auto;position:static;padding:0}
+    .grid,.opts,.kpis,.split{grid-template-columns:1fr}
+    .hero{padding-top:40px}
+    .cta{padding:32px 24px}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap nav" id="nav">
+    <a class="logo" href="#"><i></i>Bizpoel Pay</a>
+    <ul>
+      <li><a href="#products">Products</a></li>
+      <li><a href="#dashboard">Dashboard</a></li>
+      <li><a href="#integrate">Integrate</a></li>
+      <li><a href="#developers">Developers</a></li>
+      <li><a href="#pricing">Pricing</a></li>
+    </ul>
+    <div class="right">
+      <a class="btn btn-ghost" href="app.html#/login">Log in</a>
+      <a class="btn btn-primary" href="app.html#/signup">Sign up free</a>
+    </div>
+    <button class="menu-btn" aria-label="Menu" onclick="document.getElementById('nav').classList.toggle('open')">☰</button>
+  </div>
+</header>
+
+<main>
+  <div class="wrap hero" id="signin">
+    <div>
+      <span class="tag">Test mode in 60 seconds</span>
+      <h1>Collect payments.<br><em>Run your business.</em></h1>
+      <p class="lead">Accept UPI, cards, net banking, wallets and EMI. Track every rupee from checkout to settlement in one dashboard built for Indian businesses.</p>
+      <div class="ctas">
+        <a class="btn btn-primary" href="#signin" data-tab="signup">Start in test mode →</a>
+        <a class="btn btn-ghost" href="app.html#/login">Open the dashboard demo</a>
+      </div>
+      <div class="stats">
+        <div><b>8</b><span>payment modes</span></div>
+        <div><b>T+1</b><span>settlements</span></div>
+        <div><b>5 steps</b><span>to go live</span></div>
+      </div>
+    </div>
+
+    <div class="auth" aria-live="polite">
+      <div class="tabs" role="tablist">
+        <button role="tab" aria-selected="true" data-pane="login">Log in</button>
+        <button role="tab" aria-selected="false" data-pane="signup">Sign up</button>
+      </div>
+
+      <form id="pane-login" onsubmit="event.preventDefault();demo('Signed in (demo)')">
+        <h2>Welcome back</h2>
+        <p class="sub">Log in to your Bizpole Pay dashboard</p>
+        <label for="em">Work email</label>
+        <input id="em" type="email" placeholder="you@business.in" autocomplete="email" required>
+        <div id="pw-wrap">
+          <label for="pw">Password</label>
+          <input id="pw" type="password" placeholder="••••••••" autocomplete="current-password">
+        </div>
+        <div class="row">
+          <a href="#" id="otp-toggle">Use OTP instead</a>
+          <a href="#" onclick="demo('Reset link sent (demo)');return false">Forgot password?</a>
+        </div>
+        <button class="btn btn-primary" type="submit">Log in</button>
+        <div class="or">or</div>
+        <button class="btn btn-ghost" type="button" onclick="demo('Redirecting to your company IdP (demo)')">Continue with company SSO</button>
+      </form>
+
+      <form id="pane-signup" class="hidden" onsubmit="event.preventDefault();demo('Test account created (demo)')">
+        <h2>Create your account</h2>
+        <p class="sub">Start in test mode. Go live after 5 quick onboarding steps.</p>
+        <label for="nm">Full name</label>
+        <input id="nm" placeholder="Your name" autocomplete="name" required>
+        <label for="sem">Work email</label>
+        <input id="sem" type="email" placeholder="you@business.in" autocomplete="email" required>
+        <label for="mob">Mobile</label>
+        <input id="mob" type="tel" placeholder="+91 98xxxxxx10" autocomplete="tel" required>
+        <div style="height:16px"></div>
+        <button class="btn btn-primary" type="submit">Get started</button>
+      </form>
+      <p class="fine">Payments processed by PayU · PCI-DSS compliant processing</p>
+    </div>
+  </div>
+
+  <section id="products" style="padding-top:24px">
+    <div class="wrap">
+      <div class="methods">
+        <span>UPI</span><span>Credit card</span><span>Debit card</span><span>Net banking</span><span>Wallets</span><span>EMI</span><span>Pay later</span><span>Cash card</span>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="tag">Products</span>
+        <h2>Everything to get paid and keep track</h2>
+        <p>Start with checkout and payment links. Add subscriptions, split settlements and payouts as you grow.</p>
+      </div>
+      <div class="grid">
+        <div class="card"><div class="ic">⚡</div><h3>Hosted checkout</h3><p>A conversion-tuned payment page. Add your logo and colours. Go live without building a payment UI.</p></div>
+        <div class="card"><div class="ic">🔗</div><h3>Payment links</h3><p>Share a link on WhatsApp, SMS or email. Fixed or open amount, expiry, and partial payments.</p></div>
+        <div class="card"><div class="ic">↺</div><h3>Refunds</h3><p>Full or partial refunds from the dashboard or API, with bank reference numbers once processed.</p></div>
+        <div class="card"><div class="ic">₹</div><h3>Settlements</h3><p>See gross, fees, tax and net for every payout to your bank, with the UTR and each transaction listed.</p></div>
+        <div class="card"><div class="ic">⟳</div><h3>Subscriptions</h3><p>Recurring billing on UPI Autopay and cards. Plans, mandates and retries in one place.</p></div>
+        <div class="card"><div class="ic">⑂</div><h3>Split &amp; payouts</h3><p>Split a payment between partners, or send money to vendors over IMPS, NEFT or UPI.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="dashboard">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="tag">Dashboard</span>
+        <h2>One place for every rupee</h2>
+        <p>Switch between test and live data. Track success rates, settlements and onboarding from a single home screen.</p>
+      </div>
+
+      <div class="dash">
+        <div class="dash-in">
+          <nav class="side" aria-label="Dashboard preview navigation">
+            <h6>TRACK</h6>
+            <a class="on" href="#dashboard">Business summary</a><a href="#dashboard">Transactions</a><a href="#dashboard">Settlements</a><a href="#dashboard">Chargebacks</a><a href="#dashboard">Reports</a>
+            <h6>PRODUCTS</h6>
+            <a href="#dashboard">Checkout</a><a href="#dashboard">Payment links</a><a href="#dashboard">Subscriptions</a><a href="#dashboard">Split &amp; payouts</a>
+            <h6>INSIGHTS</h6>
+            <a href="#dashboard">Analytics</a><a href="#dashboard">Customers</a>
+            <h6>ACCOUNT</h6>
+            <a href="#dashboard">Settings</a><a href="#dashboard">Developers</a>
+          </nav>
+          <div class="main">
+            <div class="topbar">
+              <strong>Business summary</strong>
+              <span class="mid" id="mid">MID · TEST-0000</span>
+              <div class="mode"><span id="mode-label">Test mode</span><button class="switch" id="mode" aria-label="Toggle test or live mode"></button></div>
+            </div>
+            <div class="banner" id="banner">You're viewing test data. Complete onboarding to accept real payments.</div>
+            <div class="kpis">
+              <div class="kpi"><small>Total collected</small><b id="k1">₹1,24,560</b><span id="k1s">312 transactions</span></div>
+              <div class="kpi"><small>Settled</small><b id="k2">₹98,210</b><span id="k2s">6 settlements</span></div>
+              <div class="kpi"><small>Refunds</small><b id="k3">₹3,400</b><span id="k3s">4 refunds</span></div>
+            </div>
+            <div class="split">
+              <div class="panel">
+                <h5>Successful transactions · last 7 days</h5>
+                <div class="bars" id="bars"></div>
+                <div class="health"><span class="dot"></span>All payment modes operational · <a href="#dashboard" style="color:var(--brand);font-weight:600">View downtime</a></div>
+              </div>
+              <div class="panel">
+                <h5>Onboarding · 40% complete</h5>
+                <div class="prog"><i></i></div>
+                <ul class="steps">
+                  <li class="done">PAN details</li><li class="done">Business details</li><li>Bank account</li><li>Website details</li><li>KYC documents</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="integrate">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="tag">Integrate</span>
+        <h2>Pick how you want to go live</h2>
+      </div>
+      <div class="opts">
+        <div class="opt"><span class="time">1–2 DAYS</span><h3>Hosted checkout</h3><p>Redirect to our prebuilt payment page. The least code and the fastest launch.</p></div>
+        <div class="opt"><span class="time">2–3 DAYS</span><h3>Custom checkout</h3><p>Build your own payment UI on our server APIs. You control the whole experience.</p></div>
+        <div class="opt"><span class="time">MINUTES</span><h3>Plugins</h3><p>Shopify, WooCommerce and more. Install, paste your keys, and start accepting payments.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="developers">
+    <div class="wrap dev">
+      <div>
+        <span class="tag">Developers</span>
+        <div class="sec-head" style="margin-bottom:0"><h2>Create an order, redirect, done</h2>
+        <p>One REST call creates an order. We handle hashing, payment-provider callbacks, verification and webhooks.</p></div>
+        <ul class="checks">
+          <li>Separate test and live keys</li>
+          <li>Signed webhooks with retries and a delivery log</li>
+          <li>Status confirmed with the payment provider before a payment is marked paid</li>
+          <li>Idempotent refunds and payouts</li>
+        </ul>
+      </div>
+<pre><span class="c">// server-side · Node</span>
+<span class="k">const</span> order = <span class="k">await</span> fetch(<span class="s">"https://api.bizpolepay.example/v1/orders"</span>, {
+  method: <span class="s">"POST"</span>,
+  headers: { Authorization: <span class="s">`Bearer ${BIZPOLEPAY_TEST_KEY}`</span> },
+  body: JSON.stringify({
+    amount: <span class="s">49900</span>,          <span class="c">// paise</span>
+    receipt: <span class="s">"INV-1042"</span>,
+    customer: { name: <span class="s">"Asha"</span>, email: <span class="s">"asha@example.in"</span> },
+    return_url: <span class="s">"https://shop.example.in/thanks"</span>
+  })
+}).then(r =&gt; r.json());
+
+res.redirect(order.checkout_url);
+
+<span class="c">// webhook → payment.success { order_id, txn_id, amount, mode }</span></pre>
+    </div>
+  </section>
+
+  <section id="pricing" style="padding-top:0">
+    <div class="wrap">
+      <div class="cta">
+        <h2>Try every feature in test mode. Pay only when you go live.</h2>
+        <a class="btn btn-primary" href="#signin" data-tab="signup">Create test account</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap foot">
+    <div><a class="logo" href="#"><i></i>Bizpole Pay</a><p style="margin:10px 0 0">Payments processed by PayU, an RBI-authorised payment aggregator.</p></div>
+    <ul><li><a href="#">Terms</a></li><li><a href="#">Privacy</a></li><li><a href="#">Refund policy</a></li><li><a href="#">Contact</a></li><li><a href="#developers">Docs</a></li></ul>
+  </div>
+</footer>
+
+<script>
+  // auth tabs
+  const show = pane => {
+    document.querySelectorAll('.tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.pane === pane));
+    document.getElementById('pane-login').classList.toggle('hidden', pane !== 'login');
+    document.getElementById('pane-signup').classList.toggle('hidden', pane !== 'signup');
+  };
+  document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => show(b.dataset.pane));
+  document.querySelectorAll('[data-tab]').forEach(a => a.addEventListener('click', () => show(a.dataset.tab)));
+
+  // OTP toggle
+  let otp = false;
+  document.getElementById('otp-toggle').onclick = e => {
+    e.preventDefault(); otp = !otp;
+    document.querySelector('#pw-wrap label').textContent = otp ? 'One-time code' : 'Password';
+    const pw = document.getElementById('pw');
+    pw.type = otp ? 'text' : 'password'; pw.placeholder = otp ? '6-digit code' : '••••••••';
+    pw.inputMode = otp ? 'numeric' : 'text';
+    e.target.textContent = otp ? 'Use password instead' : 'Use OTP instead';
+  };
+
+  function demo(msg){ location.href = /account created/i.test(msg) ? 'app.html#/signup' : 'app.html#/login'; }
+
+  // dashboard preview
+  const data = {
+    test: { mid:'MID · TEST-0000', k:['₹1,24,560','312 transactions','₹98,210','6 settlements','₹3,400','4 refunds'], bars:[30,52,41,66,58,74,63],
+            banner:"You're viewing test data. Complete onboarding to accept real payments." },
+    live: { mid:'MID · LIVE-0000', k:['₹0.00','0 transactions','₹0.00','0 settlements','₹0.00','0 refunds'], bars:[4,4,4,4,4,4,4],
+            banner:'Live mode unlocks after onboarding is approved.' }
+  };
+  const bars = document.getElementById('bars');
+  function render(mode){
+    const d = data[mode];
+    document.getElementById('mid').textContent = d.mid;
+    ['k1','k1s','k2','k2s','k3','k3s'].forEach((id,i) => document.getElementById(id).textContent = d.k[i]);
+    bars.innerHTML = d.bars.map(h => `<i style="height:${h}%"></i>`).join('');
+    const b = document.getElementById('banner'); b.textContent = d.banner; b.classList.toggle('live', mode==='live');
+    document.getElementById('mode-label').textContent = mode==='live' ? 'Live mode' : 'Test mode';
+    document.getElementById('mode').classList.toggle('live', mode==='live');
+  }
+  let mode = 'test';
+  document.getElementById('mode').onclick = () => render(mode = mode==='test' ? 'live' : 'test');
+  render(mode);
+</script>
+</body>
+</html>

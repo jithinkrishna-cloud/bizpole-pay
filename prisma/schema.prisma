@@ -1,0 +1,1259 @@
+// Paynest schema v2 (FROZEN 2026-11-02). Changes go through docs/SCHEMA_REVIEW.md.
+//
+// Ownership
+//   Paynest owns: users, merchants, onboarding state, access control, local ledger.
+//   PayU owns:    payment processing, merchant activation, settlement, verification.
+//   Ledger:       local mirror of PayU facts (callbacks, webhooks, polling) + reconciliation.
+//
+// Conventions
+//   * Every merchant-scoped financial row carries (merchantId, mode). Child rows reference
+//     parents through composite FKs on (id, merchantId, mode), so the database itself rejects
+//     cross-merchant and test/live mixing.
+//   * Money is integer paise (BigInt). Where PayU hashes or echoes an amount string, the exact
+//     string is stored too (`payuAmount`), because the reverse hash depends on it.
+//   * PayU status strings are stored raw (`payuStatus`, `unmappedStatus`, ...) next to a
+//     normalised enum. PayU docs are inconsistent in casing and codes; never parse twice.
+//   * `*Enc` columns hold envelope-encrypted values: "v1:<keyId>:<base64(iv|ciphertext|tag)>".
+//   * Financial tables use onDelete: Restrict. Merchants are deactivated, never deleted.
+//   * Extra invariants live in prisma/sql/constraints.sql (CHECKs, partial indexes, triggers).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ═══════════════════════════ Enums ═══════════════════════════
+
+enum Mode {
+  TEST
+  LIVE
+}
+
+enum UserStatus {
+  ACTIVE
+  LOCKED
+  DISABLED
+}
+
+enum MemberRole {
+  OWNER
+  ADMIN
+  FINANCE
+  DEVELOPER
+  SUPPORT
+  VIEWER
+}
+
+enum OtpPurpose {
+  LOGIN
+  SIGNUP_VERIFY
+  PASSWORD_RESET
+  MOBILE_VERIFY
+  REVEAL_SECRET
+}
+
+enum BusinessEntityType {
+  INDIVIDUAL
+  PROPRIETORSHIP
+  PARTNERSHIP
+  LLP
+  PRIVATE_LIMITED
+  PUBLIC_LIMITED
+  TRUST
+  SOCIETY
+  NGO
+  GOVERNMENT
+}
+
+// Paynest's own lifecycle. PayU's per-area statuses live in PayuOnboardingStatus.
+enum MerchantStatus {
+  TEST_ONLY
+  ONBOARDING
+  SUBMITTED
+  UNDER_REVIEW
+  ACTION_REQUIRED
+  LIVE
+  REJECTED
+  SUSPENDED
+  DEACTIVATED
+}
+
+// Paynest wizard steps (UI). Each maps onto one or more PayU partner API calls.
+enum OnboardingStepKey {
+  PAN_DETAILS
+  BUSINESS_DETAILS
+  BANK_ACCOUNT
+  WEBSITE_DETAILS
+  KYC_DOCUMENTS
+  SIGNATORY
+  AGREEMENT
+  VKYC
+}
+
+enum StepStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  SUBMITTED
+  VERIFIED
+  REJECTED
+}
+
+enum IntegrationType {
+  PAYU_HOSTED
+  MERCHANT_HOSTED
+  PLUGIN
+}
+
+enum KycDocType {
+  PAN
+  AADHAAR_MASKED   // only masked Aadhaar may be stored
+  GSTIN
+  CIN_CERTIFICATE
+  PARTNERSHIP_DEED
+  TRUST_DEED
+  CANCELLED_CHEQUE
+  BANK_STATEMENT
+  ADDRESS_PROOF
+  BOARD_RESOLUTION
+  UDYAM
+  SHOP_ESTABLISHMENT
+  OTHER
+}
+
+enum KycStatus {
+  UPLOADED
+  SUBMITTED_TO_PAYU
+  VERIFIED
+  REJECTED
+  DELETED
+}
+
+enum SaltVersion {
+  V1  // legacy 32-char salt
+  V2  // 256-bit salt (PayU recommended)
+}
+
+enum CredentialStatus {
+  ACTIVE
+  ROTATING   // new salt issued, not yet activated (PayU: activate within 15 days)
+  REVOKED
+}
+
+enum PaymentMethod {
+  CREDIT_CARD
+  DEBIT_CARD
+  NET_BANKING
+  UPI
+  WALLET
+  EMI
+  CARDLESS_EMI
+  BNPL
+  QR
+  NEFT_RTGS
+  REWARDS
+  OTHER
+}
+
+enum OrderStatus {
+  CREATED
+  ATTEMPTED
+  PAID
+  PARTIALLY_REFUNDED
+  REFUNDED
+  EXPIRED
+  CANCELLED
+}
+
+// Normalised from PayU status/unmappedstatus (docs: payment-state-explanations).
+enum TransactionStatus {
+  INITIATED       // our row exists; PayU: initiated
+  PENDING         // PayU: pending / in progress
+  AUTHORIZED      // PayU: auth (debited, not captured)
+  SUCCESS         // PayU: captured
+  FAILED          // PayU: failed
+  USER_CANCELLED  // PayU: userCancelled
+  BOUNCED         // PayU: bounced
+  DROPPED         // PayU: dropped
+  AUTO_REFUNDED   // PayU: autoRefund
+}
+
+enum RefundStatus {
+  REQUESTED     // our row, not yet accepted by PayU
+  QUEUED
+  IN_PROGRESS
+  SUCCESS
+  FAILED
+}
+
+enum SettlementStatus {
+  PENDING
+  PROCESSED
+  FAILED
+  ON_HOLD
+}
+
+enum SettlementLineAction {
+  CAPTURE
+  REFUND
+  CHARGEBACK
+  CHARGEBACK_REVERSAL
+  OTHER
+}
+
+enum ChargebackStatus {
+  NEW
+  PENDING_RESPONSE
+  PENDING_DOC_REVIEW
+  SUBMITTED_TO_BANK
+  INSUFFICIENT_DOCUMENT
+  WON              // Closed in Merchant Favour
+  LOST             // Closed Customer Favour
+  FRAUD_LIABILITY  // Closed under Fraud Liability
+  ACCEPTED
+  OTHER
+}
+
+enum PaymentLinkStatus {
+  ACTIVE
+  PAID
+  PARTIALLY_PAID
+  EXPIRED
+  INACTIVE
+}
+
+enum MandateMethod {
+  CARD
+  NET_BANKING
+  UPI
+}
+
+enum BillingCycle {
+  ONCE
+  ADHOC
+  DAILY
+  WEEKLY
+  MONTHLY
+  YEARLY
+}
+
+enum MandateStatus {
+  PENDING_REGISTRATION
+  ACTIVE
+  PAUSED
+  REVOKED
+  EXPIRED
+  FAILED
+}
+
+enum SplitType {
+  ABSOLUTE
+  PERCENTAGE
+}
+
+enum SplitStatus {
+  PENDING   // PayU status 2
+  CREATED   // PayU status 1
+  RELEASED
+  FAILED    // PayU status 0
+}
+
+enum PayoutStatus {
+  QUEUED
+  SCHEDULED
+  IN_PROGRESS
+  PENDING
+  WAITING_FOR_RETRY
+  SUCCESS
+  FAILED
+  REVERSED
+}
+
+enum TransferMode {
+  IMPS
+  NEFT
+  RTGS
+  UPI
+}
+
+enum InboundSource {
+  SURL
+  FURL
+  PAYMENT_WEBHOOK
+  REFUND_WEBHOOK
+  DISPUTE_WEBHOOK
+  ONBOARDING_WEBHOOK
+  PAYMENT_LINK_WEBHOOK
+  PAYOUT_WEBHOOK
+  POLL            // result of verify/check_action_status/settlement fetch
+}
+
+enum EventProcessing {
+  RECEIVED
+  SIGNATURE_INVALID
+  PROCESSED
+  DUPLICATE
+  FAILED
+}
+
+enum LedgerAccount {
+  CUSTOMER_PAYMENTS   // gross captured
+  REFUNDS
+  CHARGEBACKS
+  GATEWAY_FEES
+  GATEWAY_TAX
+  PENDING_SETTLEMENT  // owed by PayU to merchant
+  SETTLED_TO_BANK
+  ADJUSTMENTS
+}
+
+enum ReconKind {
+  VERIFY_PAYMENTS
+  REFUND_STATUS
+  SETTLEMENT_SYNC
+  CHARGEBACK_SYNC
+  PAYOUT_STATUS
+  MANDATE_STATUS
+}
+
+enum ReconRunStatus {
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum MismatchResolution {
+  OPEN
+  AUTO_FIXED
+  MANUALLY_FIXED
+  IGNORED
+}
+
+enum DeliveryStatus {
+  PENDING
+  DELIVERED
+  FAILED
+}
+
+// ═══════════════════════════ Identity & access ═══════════════════════════
+
+model User {
+  id               String     @id @default(cuid())
+  email            String     @unique
+  mobile           String?    @unique
+  name             String
+  passwordHash     String?    // argon2id; null for SSO-only
+  emailVerifiedAt  DateTime?
+  mobileVerifiedAt DateTime?
+  status           UserStatus @default(ACTIVE)
+  failedLogins     Int        @default(0)
+  lockedUntil      DateTime?
+  lastLoginAt      DateTime?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  memberships Membership[]
+  sessions    Session[]
+  otpCodes    OtpCode[]
+  auditLogs   AuditLog[]
+}
+
+model Session {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshHash String    @unique
+  merchantId  String?   // selected merchant (MID switcher)
+  merchant    Merchant? @relation(fields: [merchantId], references: [id], onDelete: SetNull)
+  mode        Mode      @default(TEST)
+  userAgent   String?
+  ip          String?
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([userId])
+}
+
+model OtpCode {
+  id         String     @id @default(cuid())
+  userId     String?
+  user       User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  target     String     // email or E.164 mobile
+  purpose    OtpPurpose
+  codeHash   String
+  attempts   Int        @default(0)
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime   @default(now())
+
+  @@index([target, purpose, createdAt])
+}
+
+model SsoConnection {
+  id          String   @id @default(cuid())
+  merchantId  String   @unique
+  merchant    Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  emailDomain String   @unique
+  protocol    String   // "oidc" | "saml"
+  issuer      String
+  clientId    String?
+  clientSecretEnc String?
+  metadataUrl String?
+  enforced    Boolean  @default(false)
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Membership {
+  id         String     @id @default(cuid())
+  userId     String
+  merchantId String
+  role       MemberRole
+  invitedBy  String?
+  createdAt  DateTime   @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, merchantId])
+  @@index([merchantId])
+}
+
+// ═══════════════════════════ Merchant & PayU onboarding ═══════════════════════════
+
+model Merchant {
+  id              String              @id @default(cuid())
+  displayName     String
+  legalName       String?
+  email           String
+  mobile          String
+  entityType      BusinessEntityType?
+  category        String?
+  subCategory     String?
+  panEnc          String?             // encrypted PAN
+  panLast4        String?
+  gstin           String?
+  websiteUrl      String?
+  appUrl          String?
+  status          MerchantStatus      @default(TEST_ONLY)
+  integrationType IntegrationType?
+  activatedAt     DateTime?
+  deactivatedAt   DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  // PayU partner identifiers (create-merchant / webhook). Null until referred to PayU.
+  payuMid                Int?    @unique
+  payuMerchantUuid       String? @unique
+  payuProductAccountUuid String? @unique
+
+  members          Membership[]
+  sessions         Session[]
+  sso              SsoConnection?
+  addresses        MerchantAddress[]
+  onboardingSteps  OnboardingStep[]
+  payuStatuses     PayuOnboardingStatus[]
+  kycDocuments     KycDocument[]
+  bankAccounts     BankAccount[]
+  credentials      PayuCredential[]
+  childMerchants   ChildMerchant[]
+  paymentMethods   MerchantPaymentMethod[]
+  checkoutThemes   CheckoutTheme[]
+  customers        Customer[]
+  orders           Order[]
+  transactions     Transaction[]
+  refunds          Refund[]
+  settlements      Settlement[]
+  chargebacks      Chargeback[]
+  paymentLinks     PaymentLink[]
+  plans            SubscriptionPlan[]
+  mandates         Mandate[]
+  splitAllocations SplitAllocation[]
+  beneficiaries    Beneficiary[]
+  payouts          Payout[]
+  ledgerEntries    LedgerEntry[]
+  reports          Report[]
+  apiKeys          ApiKey[]
+  webhookEndpoints WebhookEndpoint[]
+  auditLogs        AuditLog[]
+}
+
+model MerchantAddress {
+  id         String   @id @default(cuid())
+  merchantId String
+  merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  kind       String   // "registered" | "operating"
+  line1      String
+  line2      String?
+  city       String
+  state      String
+  pincode    String
+  updatedAt  DateTime @updatedAt
+
+  @@unique([merchantId, kind])
+}
+
+// Paynest wizard state. `data` is validated per step and must not contain raw PAN/Aadhaar/account numbers.
+model OnboardingStep {
+  id          String            @id @default(cuid())
+  merchantId  String
+  merchant    Merchant          @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  key         OnboardingStepKey
+  status      StepStatus        @default(NOT_STARTED)
+  data        Json?
+  remarks     String?
+  submittedAt DateTime?
+  verifiedAt  DateTime?
+  updatedAt   DateTime          @updatedAt
+
+  @@unique([merchantId, key])
+}
+
+// PayU tracks status per area (kyc, pan, gst, document, agreement, vkyc, website, bank, settlement, ...).
+// One row per area holds the latest raw status; history is in PayuOnboardingEvent.
+model PayuOnboardingStatus {
+  id         String   @id @default(cuid())
+  merchantId String
+  merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  area       String   // e.g. "account", "kyc", "pan_verification", "document", "agreement", "vkyc"
+  status     String   // raw PayU value
+  remarks    String?
+  changedAt  DateTime
+  updatedAt  DateTime @updatedAt
+
+  events PayuOnboardingEvent[]
+
+  @@unique([merchantId, area])
+}
+
+model PayuOnboardingEvent {
+  id             String               @id @default(cuid())
+  statusId       String
+  statusRow      PayuOnboardingStatus @relation(fields: [statusId], references: [id], onDelete: Cascade)
+  eventName      String
+  previousStatus String?
+  currentStatus  String
+  error          String?
+  remarks        String?
+  changedAt      DateTime
+  inboundEventId String?              @unique
+  inboundEvent   InboundEvent?        @relation(fields: [inboundEventId], references: [id])
+  createdAt      DateTime             @default(now())
+
+  @@index([statusId, changedAt])
+}
+
+model KycDocument {
+  id             String     @id @default(cuid())
+  merchantId     String
+  merchant       Merchant   @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  type           KycDocType
+  numberMasked   String?
+  storageKey     String     // private object storage key
+  sha256         String
+  payuDocumentId String?
+  status         KycStatus  @default(UPLOADED)
+  remarks        String?
+  uploadedAt     DateTime   @default(now())
+  reviewedAt     DateTime?
+
+  @@index([merchantId, type])
+}
+
+model BankAccount {
+  id                String    @id @default(cuid())
+  merchantId        String
+  merchant          Merchant  @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  accountHolder     String
+  accountNumberEnc  String
+  accountLast4      String
+  ifsc              String
+  bankName          String?
+  nameAtBank        String?   // returned by penny-drop
+  pennyDropVerified Boolean   @default(false)
+  isPrimary         Boolean   @default(false) // one primary per merchant: partial unique index in constraints.sql
+  createdAt         DateTime  @default(now())
+  retiredAt         DateTime?
+
+  settlements Settlement[]
+
+  @@index([merchantId])
+}
+
+// PayU key + salt. Several MIDs per merchant and mode are possible (MID switcher).
+// Every transaction records the credential that created it; refunds/verify must reuse it.
+model PayuCredential {
+  id           String           @id @default(cuid())
+  merchantId   String
+  merchant     Merchant         @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  mode         Mode
+  payuMid      Int
+  merchantKey  String
+  saltVersion  SaltVersion
+  saltEnc      String
+  status       CredentialStatus @default(ACTIVE)
+  isDefault    Boolean          @default(false) // one default per (merchant, mode): partial unique index
+  label        String?
+  issuedAt     DateTime         @default(now())
+  revokedAt    DateTime?
+
+  transactions Transaction[]
+  settlements  Settlement[]
+  paymentLinks PaymentLink[]
+  mandates     Mandate[]
+
+  @@unique([mode, merchantKey, saltVersion])
+  @@unique([id, merchantId, mode])
+  @@index([merchantId, mode])
+}
+
+// Aggregator child merchant used for split settlements (create-child-merchant API).
+model ChildMerchant {
+  id                     String   @id @default(cuid())
+  merchantId             String   // aggregator (parent) merchant
+  merchant               Merchant @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  mode                   Mode
+  name                   String
+  childMid               Int?
+  childMerchantKey       String?  // key used inside splitInfo
+  productAccountUuid     String?
+  onboardingStatus       String?  // raw PayU value
+  active                 Boolean  @default(true)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  allocations SplitAllocation[]
+
+  @@unique([mode, childMerchantKey])
+  @@unique([id, merchantId, mode])
+}
+
+model MerchantPaymentMethod {
+  id         String        @id @default(cuid())
+  merchantId String
+  merchant   Merchant      @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  mode       Mode
+  method     PaymentMethod
+  enabled    Boolean       @default(false)
+  updatedAt  DateTime      @updatedAt
+
+  @@unique([merchantId, mode, method])
+}
+
+// Platform-wide gateway health (not merchant-owned).
+model GatewayDowntime {
+  id        String        @id @default(cuid())
+  method    PaymentMethod
+  bankCode  String?
+  severity  String        // "degraded" | "down"
+  message   String?
+  startedAt DateTime
+  endedAt   DateTime?
+  source    String        // "payu" | "probe"
+  createdAt DateTime      @default(now())
+
+  @@index([endedAt])
+}
+
+model CheckoutTheme {
+  id           String          @id @default(cuid())
+  merchantId   String
+  merchant     Merchant        @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  mode         Mode
+  logoKey      String?
+  primaryColor String          @default("#4b3bdb")
+  displayName  String?
+  methodOrder  PaymentMethod[]
+  updatedAt    DateTime        @updatedAt
+
+  @@unique([merchantId, mode])
+}
+
+// ═══════════════════════════ Developer ═══════════════════════════
+
+model ApiKey {
+  id         String    @id @default(cuid())
+  merchantId String
+  merchant   Merchant  @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  mode       Mode
+  name       String
+  prefix     String    @unique
+  secretHash String
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([merchantId, mode])
+}
+
+model WebhookEndpoint {
+  id         String   @id @default(cuid())
+  merchantId String
+  merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  mode       Mode
+  url        String
+  secretEnc  String
+  events     String[]
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  deliveries WebhookDelivery[]
+}
+
+model WebhookDelivery {
+  id           String          @id @default(cuid())
+  endpointId   String
+  endpoint     WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+  eventId      String          // stable id sent to the merchant for their own dedupe
+  event        String
+  payload      Json
+  status       DeliveryStatus  @default(PENDING)
+  attempts     Int             @default(0)
+  responseCode Int?
+  nextRetryAt  DateTime?
+  createdAt    DateTime        @default(now())
+
+  @@unique([endpointId, eventId])
+  @@index([status, nextRetryAt])
+}
+
+// ═══════════════════════════ Payments ═══════════════════════════
+
+model Customer {
+  id         String   @id @default(cuid())
+  merchantId String
+  merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  mode       Mode
+  name       String
+  email      String?
+  phone      String?
+  createdAt  DateTime @default(now())
+
+  orders   Order[]
+  mandates Mandate[]
+
+  @@unique([id, merchantId, mode])
+  @@index([merchantId, mode, email])
+  @@index([merchantId, mode, phone])
+}
+
+model Order {
+  id            String       @id @default(cuid())
+  merchantId    String
+  merchant      Merchant     @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  mode          Mode
+  customerId    String?
+  customer      Customer?    @relation(fields: [customerId, merchantId, mode], references: [id, merchantId, mode], onDelete: Restrict)
+  paymentLinkId String?
+  paymentLink   PaymentLink? @relation(fields: [paymentLinkId, merchantId, mode], references: [id, merchantId, mode], onDelete: Restrict)
+  receipt       String?
+  amountPaise   BigInt
+  currency      String       @default("INR")
+  productInfo   String       @db.VarChar(100)
+  status        OrderStatus  @default(CREATED)
+  udf1          String?      @db.VarChar(255)
+  udf2          String?      @db.VarChar(255)
+  udf3          String?      @db.VarChar(255)
+  udf4          String?      @db.VarChar(255)
+  udf5          String?      @db.VarChar(255)
+  notes         Json?
+  returnUrl     String?
+  expiresAt     DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  transactions Transaction[]
+
+  @@unique([merchantId, mode, receipt])
+  @@unique([id, merchantId, mode])
+  @@index([merchantId, mode, createdAt])
+}
+
+// One row per PayU attempt (txnid). Created before redirect; updated from callbacks/verify.
+model Transaction {
+  id                     String            @id @default(cuid())
+  merchantId             String
+  merchant               Merchant          @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  mode                   Mode
+  orderId                String
+  order                  Order             @relation(fields: [orderId, merchantId, mode], references: [id, merchantId, mode], onDelete: Restrict)
+  credentialId           String
+  credential             PayuCredential    @relation(fields: [credentialId, merchantId, mode], references: [id, merchantId, mode], onDelete: Restrict)
+  txnid                  String            @unique @db.VarChar(25)
+  mihpayid               String?           // PayU id, text (docs return "Not Found" sentinels)
+  amountPaise            BigInt
+  payuAmount             String            // exact string sent/echoed, used in hashes
+  additionalChargesPaise BigInt?
+  netAmountDebitPaise    BigInt?
+  discountPaise          BigInt?
+  status                 TransactionStatus @default(INITIATED)
+  payuStatus             String?           // raw: success | failure | pending
+  unmappedStatus         String?           // raw: captured | auth | bounced | ...
+  method                 PaymentMethod?
+  payuMode               String?           // raw: CC, DC, NB, UPI, CASH, EMI, BNPL, QR, ...
+  bankcode               String?
+  pgType                 String?
+  paymentSource          String?
+  bankRefNum             String?
+  errorCode              String?
+  errorMessage           String?
+  cardMasked             String?           // never store full PAN/CVV/expiry
+  vpaMasked              String?
+  isMandateRegistration  Boolean           @default(false)
+  completedAt            DateTime?
+  verifiedAt             DateTime?         // last confirmed by verify_payment
+  createdAt              DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
+
+  events            TransactionEvent[]
+  refunds           Refund[]
+  chargebacks       Chargeback[]
+  settlementLines   SettlementLine[]
+  splitAllocations  SplitAllocation[]
+  registeredMandate Mandate?           @relation("MandateRegistration")
+  recurringDebit    RecurringDebit?
+
+  @@unique([mode, mihpayid])
+  @@unique([id, merchantId, mode])
+  @@index([merchantId, mode, status, createdAt])
+  @@index([status, updatedAt]) // reconciliation sweep
+}
+
+// Append-only status history for a transaction.
+model TransactionEvent {
+  id             String             @id @default(cuid())
+  transactionId  String
+  transaction    Transaction        @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  fromStatus     TransactionStatus?
+  toStatus       TransactionStatus
+  payuStatus     String?
+  unmappedStatus String?
+  inboundEventId String?
+  inboundEvent   InboundEvent?      @relation(fields: [inboundEventId], references: [id])
+  note           String?
+  createdAt      DateTime           @default(now())
+
+  @@index([transactionId, createdAt])
+}
+
+model Refund {
+  id             String       @id @default(cuid())
+  merchantId     String
+  merchant       Merchant     @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  mode           Mode
+  transactionId  String
+  transaction    Transaction  @relation(fields: [transactionId, merchantId, mode], references: [id, merchantId, mode], onDelete: Restrict)
+  token          String       @unique @db.VarChar(23) // our var2; idempotency key
+  payuRequestId  String?
+  amountPaise    BigInt
+  reason         String?
+  status         RefundStatus @default(REQUESTED)
+  payuStatus     String?      // raw
+  errorCode      String?
+  bankArn        String?      // arrives 24–72h later
+  bankRefNum     String?
+  refundMode     String?
+  splitBreakdown Json?        // per child merchant (var8) for split payments
+  requestedBy    String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  settlementLines SettlementLine[]
+
+  @@unique([mode, payuRequestId])
+  @@index([merchantId, mode, status])
+  @@index([transactionId])
+}
+
+model Settlement {
+  id                    String           @id @default(cuid())
+  merchantId            String
+  merchant              Merchant         @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  mode                  Mode
+  credentialId          String
+  credential            PayuCredential   @relation(fields: [credentialId, merchantId, mode], references: [id, merchantId, mode], onDelete: Restrict)
+  bankAccountId         String?
+  bankAccount           BankAccount?     @relation(fields: [bankAccountId], references: [id])
+  payuSettlementId      String
+  utr                   String?
+  transactionAmtPaise   BigInt
+  refundAmtPaise        BigInt           @default(0)
+  chargebackAmtPaise    BigInt           @default(0)
+  serviceFeePaise       BigInt           @default(0)
+  serviceTaxPaise       BigInt           @default(0)
+  netAmountPaise        BigInt           // settlementAmount
+  status                SettlementStatus
+  completedAt           DateTime?
+  fetchedAt             DateTime         @default(now())
+
+  lines SettlementLine[]
+
+  @@unique([credentialId, payuSettlementId])
+  @@unique([id, merchantId, mode])
+  @@index([merchantId, mode, completedAt])
+}
+
+model SettlementLine {
+  id                    String               @id @default(cuid())
+  settlementId          String
+  merchantId            String
+  mode                  Mode
+  settlement            Settlement           @relation(fields: [settlementId, merchantId, mode], references: [id, merchantId, mode], onDelete: Cascade)
+  lineKey               String               // payuId|action|requestId, stable dedupe key
+  action                SettlementLineAction
+  payuId                String
+  payuRequestId         String?
+  merchantTransactionId String?
+  transactionId         String?
+  transaction           Transaction?         @relation(fields: [transactionId], references: [id])
+  refundId              String?
+  refund                Refund?              @relation(fields: [refundId], references: [id])
+  grossPaise            BigInt
+  feePaise              BigInt               @default(0)
+  taxPaise              BigInt               @default(0) // cgst + sgst + igst
+  netPaise              BigInt               // signed: negative for refunds/chargebacks
+  payuMode              String?
+
+  @@unique([settlementId, lineKey])
+  @@index([transactionId])
+}
+
+model Chargeback {
+  id               String           @id @default(cuid())
+  merchantId       String
+  merchant         Merchant         @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  mode             Mode
+  transactionId    String
+  transaction      Transaction      @relation(fields: [transactionId, merchantId, mode], references: [id, merchantId, mode], onDelete: Restrict)
+  payuChargebackId String
+  cbType           String?
+  reasonCode       String?
+  reason           String?
+  amountPaise      BigInt
+  status           ChargebackStatus @default(NEW)
+  payuStatus       String           // raw cb_status
+  bankCaseNo       String?
+  debitStatus      String?
+  replyBefore      DateTime?
+  evidenceKeys     String[]
+  raisedAt         DateTime?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  @@unique([mode, payuChargebackId])
+  @@index([merchantId, mode, status])
+}
+
+// ═══════════════════════════ Payment products ═══════════════════════════
+
+model PaymentLink {
+  id                      String            @id @default(cuid())
+  merchantId              String
+  merchant                Merchant          @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  mode                    Mode
+  credentialId            String
+  credential              PayuCredential    @relation(fields: [credentialId, merchantId, mode], references: [id, merchantId, mode], onDelete: Restrict)
+  invoiceNumber           String            // PayU invoiceNumber
+  url                     String?
+  description             String
+  amountPaise             BigInt?           // subAmount; null when customer enters it
+  isAmountFilledByCustomer Boolean          @default(false)
+  isPartialPaymentAllowed Boolean           @default(false)
+  minAmountForCustomerPaise BigInt?
+  maxPaymentsAllowed      Int?
+  customerName            String?
+  customerEmail           String?
+  customerPhone           String?
+  status                  PaymentLinkStatus @default(ACTIVE)
+  payuActive              Boolean?
+  expiresAt               DateTime?
+  createdBy               String?
+  createdAt               DateTime          @default(now())
+  updatedAt               DateTime          @updatedAt
+
+  orders Order[]
+
+  @@unique([credentialId, invoiceNumber])
+  @@unique([id, merchantId, mode])
+}
+
+model SubscriptionPlan {
+  id            String       @id @default(cuid())
+  merchantId    String
+  merchant      Merchant     @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  mode          Mode
+  name          String
+  amountPaise   BigInt
+  billingCycle  BillingCycle
+  billingInterval Int        @default(1)
+  totalCycles   Int?
+  active        Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+
+  mandates Mandate[]
+
+  @@unique([id, merchantId, mode])
+}
+
+// Standing instruction / e-mandate / UPI Autopay registered through PayU (si=1).
+model Mandate {
+  id                String         @id @default(cuid())
+  merchantId        String
+  merchant          Merchant       @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  mode              Mode
+  credentialId      String
+  credential        PayuCredential @relation(fields: [credentialId, merchantId, mode], references: [id, merchantId, mode], onDelete: Restrict)
+  customerId        String
+  customer          Customer       @relation(fields: [customerId, merchantId, mode], references: [id, merchantId, mode], onDelete: Restrict)
+  planId            String?
+  plan              SubscriptionPlan? @relation(fields: [planId, merchantId, mode], references: [id, merchantId, mode], onDelete: Restrict)
+  registrationTxnId String         @unique
+  registrationTxn   Transaction    @relation("MandateRegistration", fields: [registrationTxnId], references: [id])
+  authPayuId        String?        // mihpayid of the registration = authpayuid
+  method            MandateMethod
+  maxAmountPaise    BigInt         // billingAmount (cap)
+  billingCycle      BillingCycle
+  billingInterval   Int            @default(1)
+  billingRule       String?        // UPI: MAX | EXACT
+  billingLimit      String?        // UPI: ON | BEFORE | AFTER
+  startDate         DateTime       @db.Date
+  endDate           DateTime       @db.Date
+  status            MandateStatus  @default(PENDING_REGISTRATION)
+  payuStatus        String?
+  nextDebitAt       DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  preDebits PreDebitNotification[]
+  debits    RecurringDebit[]
+
+  @@unique([mode, authPayuId])
+  @@unique([id, merchantId, mode])
+  @@index([status, nextDebitAt])
+}
+
+model PreDebitNotification {
+  id                   String   @id @default(cuid())
+  mandateId            String
+  mandate              Mandate  @relation(fields: [mandateId], references: [id], onDelete: Restrict)
+  requestId            String   @unique
+  debitDate            DateTime @db.Date
+  amountPaise          BigInt
+  invoiceDisplayNumber String?  // cards
+  mandateSeqNo         Int?     // UPI
+  payuStatus           String?  // raw (1/0 or code such as QC)
+  invoiceStatus        String?  // Paid | Unpaid | Deleted
+  sentAt               DateTime @default(now())
+
+  debit RecurringDebit?
+}
+
+model RecurringDebit {
+  id            String               @id @default(cuid())
+  mandateId     String
+  mandate       Mandate              @relation(fields: [mandateId], references: [id], onDelete: Restrict)
+  preDebitId    String               @unique
+  preDebit      PreDebitNotification @relation(fields: [preDebitId], references: [id])
+  transactionId String               @unique
+  transaction   Transaction          @relation(fields: [transactionId], references: [id])
+  cycleNumber   Int
+  createdAt     DateTime             @default(now())
+
+  @@unique([mandateId, cycleNumber])
+}
+
+model SplitAllocation {
+  id                 String        @id @default(cuid())
+  merchantId         String
+  merchant           Merchant      @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  mode               Mode
+  transactionId      String
+  transaction        Transaction   @relation(fields: [transactionId, merchantId, mode], references: [id, merchantId, mode], onDelete: Restrict)
+  childMerchantId    String
+  childMerchant      ChildMerchant @relation(fields: [childMerchantId, merchantId, mode], references: [id, merchantId, mode], onDelete: Restrict)
+  splitType          SplitType
+  aggregatorSubTxnId String
+  amountPaise        BigInt
+  chargesPaise       BigInt?
+  status             SplitStatus   @default(PENDING)
+  payuStatus         String?
+  releasedAt         DateTime?
+  releaseStatus      String?       // raw release_settlement response
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  @@unique([transactionId, childMerchantId])
+  @@unique([mode, aggregatorSubTxnId])
+}
+
+model Beneficiary {
+  id                String   @id @default(cuid())
+  merchantId        String
+  merchant          Merchant @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  mode              Mode
+  name              String
+  email             String?
+  mobile            String?
+  accountNumberEnc  String?
+  accountLast4      String?
+  ifsc              String?
+  vpa               String?
+  payuBeneficiaryId String?
+  verified          Boolean  @default(false)
+  createdAt         DateTime @default(now())
+
+  payouts Payout[]
+
+  @@unique([mode, payuBeneficiaryId])
+  @@unique([id, merchantId, mode])
+}
+
+model Payout {
+  id            String       @id @default(cuid())
+  merchantId    String
+  merchant      Merchant     @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  mode          Mode
+  beneficiaryId String
+  beneficiary   Beneficiary  @relation(fields: [beneficiaryId, merchantId, mode], references: [id, merchantId, mode], onDelete: Restrict)
+  merchantRefId String       @db.VarChar(40)
+  batchId       String?
+  amountPaise   BigInt
+  transferMode  TransferMode
+  purpose       String?
+  status        PayoutStatus @default(QUEUED)
+  payuStatus    String?
+  payuRefId     String?
+  bankRefNo     String?
+  feePaise      BigInt?
+  taxPaise      BigInt?
+  failureReason String?
+  createdBy     String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@unique([merchantId, mode, merchantRefId])
+  @@index([merchantId, mode, status])
+}
+
+// ═══════════════════════════ Ledger & reconciliation ═══════════════════════════
+
+// Append-only double-entry ledger. Each journal (journalId) must sum to zero (trigger in constraints.sql).
+model LedgerEntry {
+  id           String        @id @default(cuid())
+  merchantId   String
+  merchant     Merchant      @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  mode         Mode
+  journalId    String
+  account      LedgerAccount
+  amountPaise  BigInt        // signed
+  sourceType   String        // "transaction" | "refund" | "settlement_line" | "chargeback" | "adjustment"
+  sourceId     String
+  occurredAt   DateTime
+  createdAt    DateTime      @default(now())
+
+  @@unique([journalId, account, sourceType, sourceId])
+  @@index([merchantId, mode, account, occurredAt])
+  @@index([sourceType, sourceId])
+}
+
+model ReconRun {
+  id          String         @id @default(cuid())
+  kind        ReconKind
+  mode        Mode
+  merchantId  String?        // null = all merchants
+  windowFrom  DateTime
+  windowTo    DateTime
+  status      ReconRunStatus @default(RUNNING)
+  checked     Int            @default(0)
+  updated     Int            @default(0)
+  mismatches  Int            @default(0)
+  error       String?
+  startedAt   DateTime       @default(now())
+  finishedAt  DateTime?
+
+  items ReconMismatch[]
+
+  @@index([kind, mode, startedAt])
+}
+
+model ReconMismatch {
+  id          String             @id @default(cuid())
+  runId       String
+  run         ReconRun           @relation(fields: [runId], references: [id], onDelete: Cascade)
+  merchantId  String
+  entityType  String             // "transaction" | "refund" | "settlement" | ...
+  entityId    String?
+  payuRef     String?
+  field       String
+  localValue  String?
+  payuValue   String?
+  resolution  MismatchResolution @default(OPEN)
+  resolvedBy  String?
+  resolvedAt  DateTime?
+  createdAt   DateTime           @default(now())
+
+  @@index([merchantId, resolution])
+}
+
+// Every inbound PayU message (browser callback, webhook, or poll result), stored before processing.
+model InboundEvent {
+  id             String          @id @default(cuid())
+  source         InboundSource
+  mode           Mode
+  dedupeKey      String          @unique // sha256 of source + identifying fields + status
+  merchantId     String?
+  signatureValid Boolean?        // null when PayU provides no signature for this source
+  payload        Json            // hash, salts, card data and credentials removed
+  processing     EventProcessing @default(RECEIVED)
+  error          String?
+  receivedAt     DateTime        @default(now())
+  processedAt    DateTime?
+
+  transactionEvents TransactionEvent[]
+  onboardingEvent   PayuOnboardingEvent?
+
+  @@index([source, processing, receivedAt])
+}
+
+// ═══════════════════════════ Reports & audit ═══════════════════════════
+
+model Report {
+  id          String    @id @default(cuid())
+  merchantId  String
+  merchant    Merchant  @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  mode        Mode
+  kind        String
+  fromDate    DateTime
+  toDate      DateTime
+  filters     Json?
+  status      String    @default("QUEUED")
+  storageKey  String?
+  expiresAt   DateTime?
+  requestedBy String?
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  @@index([merchantId, mode, createdAt])
+}
+
+model AuditLog {
+  id         String    @id @default(cuid())
+  merchantId String?
+  merchant   Merchant? @relation(fields: [merchantId], references: [id], onDelete: SetNull)
+  userId     String?
+  user       User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  mode       Mode?
+  action     String
+  entity     String?
+  entityId   String?
+  ip         String?
+  meta       Json?
+  createdAt  DateTime  @default(now())
+
+  @@index([merchantId, createdAt])
+}

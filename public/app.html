@@ -1,0 +1,2013 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Bizpole Pay Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        /* Palette: Charcoal #211F24 · Solar yellow #F1C64B · Coral #E65F55 · Warm paper #F6F4EF · Graphite #343138 · Soft neutral #EEECE7
+       Balance ≈ 70% paper/light · 20% charcoal · 6% yellow · 4% coral */
+        --ink: #211f24;
+        --ink-2: #343138;
+        --muted: #6f6a66;
+        --line: #e3e0d9;
+        --soft: #eeece7;
+        --bg: #f6f4ef;
+        --card: #fffefb;
+        --brand: #e65f55;
+        --brand-hover: #d14e44;
+        --brand-2: #f1c64b;
+        --brand-soft: #fbe8e6;
+        --accent: #f1c64b;
+        --accent-soft: #fcf3d9;
+        --ok: #2f8f5b;
+        --ok-soft: #e4f2ea;
+        --warn: #b7861b;
+        --warn-soft: #fcf3d9;
+        --bad: #c8463c;
+        --bad-soft: #fbe8e6;
+        --radius: 12px;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: "Instrument Sans", system-ui, sans-serif;
+        color: var(--ink);
+        background: var(--bg);
+        font-size: 14.5px;
+        line-height: 1.5;
+      }
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+      button,
+      input,
+      select,
+      textarea {
+        font: inherit;
+        color: inherit;
+      }
+      .mono {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 12.5px;
+      }
+      .muted {
+        color: var(--muted);
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        border-radius: 9px;
+        padding: 9px 15px;
+        font-weight: 600;
+        border: 1.5px solid var(--line);
+        background: var(--card);
+        cursor: pointer;
+        white-space: nowrap;
+      }
+      .btn:hover {
+        border-color: var(--brand);
+      }
+      .btn.primary {
+        background: var(--brand);
+        border-color: var(--brand);
+        color: #fff;
+      }
+      .btn.primary:hover {
+        background: var(--brand-hover);
+        border-color: var(--brand-hover);
+      }
+      .btn.danger {
+        color: var(--bad);
+      }
+      .btn.sm {
+        padding: 6px 10px;
+        font-size: 13px;
+      }
+      .btn:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+        border-color: var(--line);
+      }
+      .promo {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 14px 18px;
+        border-radius: 14px;
+        margin-bottom: 20px;
+        background: linear-gradient(90deg, var(--accent-soft), var(--soft));
+        border: 1px solid #eadfc2;
+      }
+      .promo .ic {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        background: var(--card);
+        display: grid;
+        place-items: center;
+        font-size: 20px;
+        color: var(--accent);
+        flex: none;
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 12.5px;
+        padding: 5px 10px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: var(--card);
+        cursor: pointer;
+        white-space: nowrap;
+      }
+      .chip.brand {
+        background: var(--brand-soft);
+        border-color: transparent;
+        color: var(--brand);
+      }
+      .toolbar {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        align-items: center;
+        margin-bottom: 16px;
+      }
+      .searchbox {
+        display: flex;
+        flex: 1;
+        min-width: 320px;
+        max-width: 560px;
+        border: 1.5px solid var(--line);
+        border-radius: 10px;
+        background: var(--card);
+        overflow: hidden;
+      }
+      .searchbox select {
+        width: auto;
+        border: 0;
+        border-right: 1.5px solid var(--line);
+        border-radius: 0;
+        background: var(--soft);
+        font-weight: 600;
+        font-size: 13.5px;
+      }
+      .searchbox input {
+        border: 0;
+        border-radius: 0;
+        flex: 1;
+        min-width: 120px;
+      }
+      .searchbox input:focus,
+      .searchbox select:focus {
+        box-shadow: none;
+      }
+      .searchbox .btn {
+        border-radius: 0;
+        border: 0;
+      }
+      .dd {
+        position: relative;
+      }
+      .menu {
+        display: none;
+        position: absolute;
+        top: calc(100% + 6px);
+        left: 0;
+        z-index: 25;
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        box-shadow: 0 14px 30px -12px rgba(33, 31, 36, 0.25);
+        padding: 6px;
+        min-width: 180px;
+        text-align: left;
+        text-transform: none;
+        letter-spacing: 0;
+        font-weight: 400;
+        color: var(--ink);
+      }
+      .menu.open {
+        display: block;
+      }
+      .menu.right {
+        left: auto;
+        right: 0;
+      }
+      .menu.wide {
+        min-width: 260px;
+        padding: 10px 12px;
+      }
+      .menu > button {
+        display: block;
+        width: 100%;
+        text-align: left;
+        padding: 8px 10px;
+        border: 0;
+        background: none;
+        border-radius: 8px;
+        cursor: pointer;
+      }
+      .menu > button:hover,
+      .menu > button.on {
+        background: var(--brand-soft);
+        color: var(--brand);
+      }
+      .menu h6 {
+        margin: 6px 2px 4px;
+        font: 600 11px "Instrument Sans";
+        letter-spacing: 0.06em;
+        color: var(--muted);
+        text-transform: uppercase;
+      }
+      .ck {
+        display: flex !important;
+        align-items: center;
+        gap: 8px;
+        font-weight: 500 !important;
+        margin: 4px 2px !important;
+        font-size: 13.5px !important;
+        cursor: pointer;
+      }
+      .ck input {
+        width: auto;
+      }
+      .iconbtn {
+        border: 0;
+        background: none;
+        cursor: pointer;
+        font-size: 16px;
+        color: var(--muted);
+        padding: 2px 6px;
+        border-radius: 6px;
+      }
+      .iconbtn:hover {
+        background: var(--card);
+        color: var(--brand);
+      }
+      .kpis {
+        margin-bottom: 16px;
+      }
+      th.sortable {
+        cursor: pointer;
+        user-select: none;
+      }
+      th.sortable:hover {
+        color: var(--brand);
+      }
+      .empty-state {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 24px;
+        padding: 56px 16px;
+        white-space: normal;
+      }
+      .empty-state .box {
+        font-size: 64px;
+      }
+      .drop {
+        display: flex !important;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        padding: 30px;
+        border: 2px dashed var(--line);
+        border-radius: 14px;
+        background: var(--soft);
+        cursor: pointer;
+        text-align: center;
+        margin: 0 !important;
+        font-size: 14px !important;
+      }
+      .drop:hover,
+      .drop.over {
+        border-color: var(--brand);
+        background: var(--brand-soft);
+      }
+      .code {
+        background: var(--ink);
+        color: #eeece7;
+        padding: 12px 14px;
+        border-radius: 10px;
+        font: 12.5px/1.6 "JetBrains Mono", monospace;
+        overflow: auto;
+        margin: 0;
+      }
+      .notice {
+        padding: 10px 12px;
+        border-radius: 10px;
+        margin-top: 12px;
+      }
+      .notice.bad {
+        background: var(--bad-soft);
+        color: var(--bad);
+      }
+      .pager {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+      .pager .btn {
+        min-width: 36px;
+      }
+      @media (min-width: 1001px) {
+        .tbl-wrap {
+          overflow: visible;
+        }
+        .tbl-wrap th:first-child {
+          border-top-left-radius: 11px;
+        }
+        .tbl-wrap th:last-child {
+          border-top-right-radius: 11px;
+        }
+      }
+      .btn.block {
+        width: 100%;
+      }
+      input,
+      select,
+      textarea {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1.5px solid var(--line);
+        border-radius: 9px;
+        background: var(--card);
+      }
+      input:focus,
+      select:focus,
+      textarea:focus {
+        outline: none;
+        border-color: var(--brand);
+        box-shadow: 0 0 0 3px var(--brand-soft);
+      }
+      label {
+        display: block;
+        font-size: 12.5px;
+        font-weight: 600;
+        margin: 12px 0 5px;
+      }
+      .pill {
+        display: inline-block;
+        font-size: 12px;
+        font-weight: 600;
+        padding: 3px 9px;
+        border-radius: 999px;
+        background: var(--soft);
+        color: var(--ink-2);
+      }
+      .pill.ok {
+        background: var(--ok-soft);
+        color: var(--ok);
+      }
+      .pill.warn {
+        background: var(--warn-soft);
+        color: var(--warn);
+      }
+      .pill.bad {
+        background: var(--bad-soft);
+        color: var(--bad);
+      }
+      .pill.brand {
+        background: var(--brand-soft);
+        color: var(--brand);
+      }
+      .logo {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        font-weight: 700;
+        font-size: 18px;
+        letter-spacing: -0.02em;
+      }
+      .logo i {
+        width: 26px;
+        height: 26px;
+        border-radius: 8px;
+        background: linear-gradient(
+          135deg,
+          var(--accent) 0 50%,
+          var(--brand) 50% 100%
+        );
+        box-shadow: inset 0 0 0 2px rgba(33, 31, 36, 0.08);
+      }
+
+      /* ---------- auth ---------- */
+      .auth-wrap {
+        min-height: 100vh;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+      }
+      .auth-art {
+        background: radial-gradient(
+            120% 80% at 100% 100%,
+            rgba(241, 198, 75, 0.22),
+            transparent 60%
+          ),
+          radial-gradient(
+            90% 60% at 0% 100%,
+            rgba(230, 95, 85, 0.18),
+            transparent 60%
+          ),
+          var(--ink);
+        color: #f6f4ef;
+        padding: 40px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+      .auth-art h1 {
+        font-size: clamp(30px, 3.6vw, 46px);
+        letter-spacing: -0.03em;
+        line-height: 1.08;
+        margin: 0 0 12px;
+      }
+      .auth-art p {
+        opacity: 0.75;
+        max-width: 420px;
+        margin: 0;
+      }
+      .auth-art .logo {
+        color: #fff;
+      }
+      .auth-form {
+        display: grid;
+        place-items: center;
+        padding: 32px 16px;
+      }
+      .auth-card {
+        width: 100%;
+        max-width: 400px;
+      }
+      .auth-card h2 {
+        margin: 0 0 4px;
+        font-size: 24px;
+        letter-spacing: -0.02em;
+      }
+      .between {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+      }
+      .linkish {
+        color: var(--brand);
+        font-weight: 600;
+        cursor: pointer;
+        background: none;
+        border: 0;
+        padding: 0;
+      }
+      .or {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: var(--muted);
+        font-size: 12px;
+        margin: 14px 0;
+      }
+      .or:before,
+      .or:after {
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: var(--line);
+      }
+
+      /* ---------- shell ---------- */
+      .shell {
+        display: grid;
+        grid-template-columns: 236px 1fr;
+        min-height: 100vh;
+      }
+      aside {
+        background: var(--ink);
+        border-right: 1px solid var(--ink);
+        padding: 16px 12px;
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        overflow: auto;
+      }
+      aside h6 {
+        font: 500 10.5px "JetBrains Mono", monospace;
+        letter-spacing: 0.08em;
+        color: #8e8a92;
+        margin: 18px 10px 6px;
+      }
+      aside a {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 7px 10px;
+        border-radius: 8px;
+        color: #d8d5d0;
+        font-weight: 500;
+      }
+      aside a:hover {
+        background: var(--ink-2);
+        color: #fff;
+      }
+      aside .logo {
+        color: #f6f4ef;
+      }
+      aside a.on {
+        background: var(--ink-2);
+        color: #fff;
+        font-weight: 600;
+        box-shadow: inset 3px 0 0 var(--accent);
+      }
+      aside a.on span {
+        color: var(--accent);
+        opacity: 1;
+      }
+      aside a span {
+        width: 18px;
+        text-align: center;
+        opacity: 0.8;
+      }
+      .top {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 24px;
+        border-bottom: 1px solid var(--line);
+        background: var(--card);
+        position: sticky;
+        top: 0;
+        z-index: 5;
+      }
+      .search {
+        flex: 1;
+        max-width: 420px;
+        position: relative;
+      }
+      .search input {
+        padding-left: 34px;
+        background: var(--soft);
+        border-color: transparent;
+      }
+      .search:before {
+        content: "⌕";
+        position: absolute;
+        left: 12px;
+        top: 8px;
+        color: var(--muted);
+        font-size: 16px;
+      }
+      .mid {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 12px;
+        background: var(--soft);
+        border-radius: 7px;
+        padding: 6px 9px;
+        cursor: pointer;
+        border: 0;
+      }
+      .mode {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 600;
+        font-size: 13px;
+        margin-left: auto;
+      }
+      .switch {
+        width: 38px;
+        height: 21px;
+        border-radius: 999px;
+        background: var(--warn);
+        position: relative;
+        cursor: pointer;
+        border: 0;
+      }
+      .switch:after {
+        content: "";
+        position: absolute;
+        top: 2.5px;
+        left: 3px;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: var(--card);
+        transition: 0.2s;
+      }
+      .switch.live {
+        background: var(--ok);
+      }
+      .switch.live:after {
+        left: 19px;
+      }
+      .avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: var(--brand-soft);
+        color: var(--brand);
+        display: grid;
+        place-items: center;
+        font-weight: 700;
+        cursor: pointer;
+        border: 0;
+      }
+      .menu-btn {
+        display: none;
+        border: 0;
+        background: none;
+        font-size: 22px;
+      }
+      .testbar {
+        background: var(--warn-soft);
+        color: #6b5208;
+        text-align: center;
+        font-size: 12.5px;
+        font-weight: 600;
+        padding: 5px;
+      }
+      /* theme v2: yellow active nav, mode pill, bell, sidebar CTA, soft cards */
+      aside {
+        display: flex;
+        flex-direction: column;
+      }
+      aside a.on {
+        background: var(--accent) !important;
+        color: var(--ink) !important;
+        font-weight: 700;
+        box-shadow: none !important;
+      }
+      aside a.on span {
+        color: var(--ink) !important;
+      }
+      .side-cta {
+        margin-top: auto !important;
+        position: relative;
+        display: block !important;
+        padding: 16px 34px 16px 16px !important;
+        border-radius: 14px !important;
+        background: var(--ink-2) !important;
+        color: #f6f4ef !important;
+        border: 1px solid #47434c;
+        margin-top: 24px;
+      }
+      .side-cta .r {
+        display: block;
+        font-size: 20px;
+        margin-bottom: 8px;
+        width: auto !important;
+        opacity: 1 !important;
+      }
+      .side-cta b {
+        display: block;
+        font-size: 14.5px;
+      }
+      .side-cta small {
+        display: block;
+        color: #c9c5c0;
+        font-size: 12.5px;
+        line-height: 1.45;
+        margin-top: 4px;
+      }
+      .side-cta em {
+        position: absolute;
+        right: 14px;
+        bottom: 16px;
+        font-style: normal;
+        font-size: 20px;
+        color: #c9c5c0;
+      }
+      .top {
+        background: rgba(246, 244, 239, 0.85) !important;
+        backdrop-filter: blur(8px);
+      }
+      .mid {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px !important;
+        border-radius: 10px !important;
+        font-size: 12.5px !important;
+      }
+      .modepill {
+        margin-left: auto;
+        border: 0;
+        border-radius: 999px;
+        padding: 8px 18px;
+        font: 700 13px "Instrument Sans";
+        letter-spacing: 0.04em;
+        background: var(--accent-soft);
+        color: #8a6410;
+        cursor: pointer;
+        box-shadow: inset 0 0 0 1px #f0dfa8;
+      }
+      .modepill.live {
+        background: var(--ok-soft);
+        color: var(--ok);
+        box-shadow: inset 0 0 0 1px #bfdfcb;
+      }
+      .bell {
+        position: relative;
+        border: 0;
+        background: none;
+        cursor: pointer;
+        color: var(--ink);
+        padding: 6px;
+        border-radius: 10px;
+        display: grid;
+        place-items: center;
+      }
+      .bell:hover {
+        background: var(--soft);
+      }
+      .bell .bdot {
+        position: absolute;
+        top: 5px;
+        right: 6px;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--brand);
+        box-shadow: 0 0 0 2px var(--bg);
+      }
+      .avatar {
+        width: 38px !important;
+        height: 38px !important;
+      }
+      .card {
+        border-radius: 16px !important;
+        border-color: #ece8e1 !important;
+        box-shadow: 0 1px 2px rgba(33, 31, 36, 0.04),
+          0 10px 28px -18px rgba(33, 31, 36, 0.22);
+      }
+      .shell > div {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+      }
+      main {
+        padding: 24px 32px 48px;
+        width: 100%;
+        flex: 1;
+      }
+      .page-h {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+      }
+      .page-h .row {
+        flex: none;
+        gap: 10px;
+      }
+      .page-h .row > * {
+        flex: none;
+        min-width: 0;
+      }
+      .page-h h1 {
+        margin: 0;
+        font-size: 24px;
+        letter-spacing: -0.02em;
+      }
+      .page-h p {
+        margin: 2px 0 0;
+        color: var(--muted);
+      }
+
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 16px 18px;
+      }
+      .card h3 {
+        margin: 0 0 10px;
+        font-size: 15px;
+      }
+      .grid {
+        display: grid;
+        gap: 14px;
+      }
+      .g2 {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .g3 {
+        grid-template-columns: repeat(3, 1fr);
+      }
+      .g4 {
+        grid-template-columns: repeat(4, 1fr);
+      }
+      .g-21 {
+        grid-template-columns: 2fr 1fr;
+      }
+      .g-ob {
+        grid-template-columns: 280px 1fr;
+      }
+      .kpi small {
+        color: var(--muted);
+        font-size: 12.5px;
+      }
+      .kpi b {
+        display: block;
+        font-size: 24px;
+        letter-spacing: -0.02em;
+        margin: 2px 0;
+      }
+      .kpi .d {
+        font-size: 12px;
+      }
+      .up {
+        color: var(--ok);
+      }
+      .down {
+        color: var(--bad);
+      }
+
+      .bars {
+        display: flex;
+        align-items: flex-end;
+        gap: 8px;
+        flex: 1;
+        min-height: 150px;
+        padding-top: 6px;
+      }
+      .bars div {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        height: 100%;
+        justify-content: flex-end;
+      }
+      .bars i {
+        width: 100%;
+        background: linear-gradient(180deg, var(--ink-2), var(--ink));
+        border-radius: 6px 6px 2px 2px;
+      }
+      .bars small {
+        font-size: 11px;
+        color: var(--muted);
+      }
+      .bars .bv {
+        font-size: 11.5px;
+        font-weight: 600;
+        color: var(--ink-2);
+        min-height: 16px;
+      }
+      .grid > .card:not(.tile) {
+        display: flex;
+        flex-direction: column;
+      }
+      .hbar {
+        display: grid;
+        grid-template-columns: 110px 1fr 46px;
+        gap: 10px;
+        align-items: center;
+        margin: 7px 0;
+        font-size: 13px;
+      }
+      .hbar .t {
+        height: 8px;
+        background: var(--soft);
+        border-radius: 9px;
+        overflow: hidden;
+      }
+      .hbar .t i {
+        display: block;
+        height: 100%;
+        background: var(--ink-2);
+      }
+
+      .filters {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 12px;
+      }
+      .filters input,
+      .filters select {
+        width: auto;
+        min-width: 170px;
+        padding: 8px 10px;
+      }
+      .filters input {
+        flex: 1;
+        max-width: 420px;
+      }
+      .tbl-wrap {
+        overflow: auto;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--card);
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13.5px;
+      }
+      th {
+        text-align: left;
+        font-weight: 600;
+        color: var(--muted);
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        background: var(--soft);
+        padding: 10px 12px;
+        white-space: nowrap;
+      }
+      td {
+        padding: 11px 12px;
+        border-top: 1px solid var(--line);
+        white-space: nowrap;
+      }
+      tr.click {
+        cursor: pointer;
+      }
+      tr.click:hover td {
+        background: #fbf8f1;
+      }
+      .right {
+        text-align: right;
+      }
+      .empty {
+        text-align: center;
+        padding: 40px;
+        color: var(--muted);
+      }
+      .tabs {
+        display: flex;
+        gap: 4px;
+        border-bottom: 1px solid var(--line);
+        margin-bottom: 16px;
+        overflow: auto;
+      }
+      .tabs button {
+        border: 0;
+        background: none;
+        padding: 10px 14px;
+        font-weight: 600;
+        color: var(--muted);
+        border-bottom: 2px solid transparent;
+        cursor: pointer;
+        white-space: nowrap;
+      }
+      .tabs button.on {
+        color: var(--brand);
+        border-color: var(--brand);
+      }
+
+      .steps {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .step {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px;
+        border-radius: 10px;
+        cursor: pointer;
+      }
+      .step:hover {
+        background: var(--soft);
+      }
+      .step .n {
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        border: 2px solid var(--line);
+        display: grid;
+        place-items: center;
+        font-size: 12px;
+        font-weight: 700;
+        flex: none;
+      }
+      .step.done .n {
+        background: var(--ok);
+        border-color: var(--ok);
+        color: #fff;
+      }
+      .step.cur .n {
+        border-color: var(--brand);
+        color: var(--brand);
+      }
+      .step.cur {
+        background: var(--brand-soft);
+      }
+      .prog {
+        height: 7px;
+        background: var(--soft);
+        border-radius: 9px;
+        overflow: hidden;
+        margin: 8px 0 12px;
+      }
+      .prog i {
+        display: block;
+        height: 100%;
+        background: var(--accent);
+      }
+      .row {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .row > * {
+        flex: 1;
+        min-width: 180px;
+      }
+      .kv {
+        display: grid;
+        grid-template-columns: 150px 1fr;
+        gap: 8px 12px;
+        font-size: 13.5px;
+      }
+      .kv dt {
+        color: var(--muted);
+      }
+      .kv dd {
+        margin: 0;
+        word-break: break-all;
+      }
+      .dot {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--ok);
+        margin-right: 6px;
+      }
+      .dot.bad {
+        background: var(--bad);
+      }
+      .dot.warn {
+        background: var(--warn);
+      }
+      .secret {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .secret code {
+        flex: 1;
+        background: var(--soft);
+        padding: 9px 12px;
+        border-radius: 8px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 12.5px;
+        overflow: auto;
+      }
+      .tile {
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+      }
+      .tile .ic {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        background: var(--brand-soft);
+        color: var(--brand);
+        display: grid;
+        place-items: center;
+        font-size: 18px;
+        flex: none;
+      }
+      .tile p {
+        margin: 2px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .preview {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        overflow: hidden;
+        max-width: 340px;
+        margin: auto;
+      }
+      .preview .hd {
+        padding: 16px;
+        color: #fff;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .preview .bd {
+        padding: 14px;
+      }
+      .preview .m {
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        padding: 10px 12px;
+        margin-bottom: 8px;
+        display: flex;
+        justify-content: space-between;
+      }
+
+      /* drawer + modal */
+      .scrim {
+        position: fixed;
+        inset: 0;
+        background: rgba(33, 31, 36, 0.4);
+        z-index: 30;
+        display: none;
+      }
+      .scrim.open {
+        display: block;
+      }
+      .drawer {
+        position: fixed;
+        top: 0;
+        right: 0;
+        height: 100vh;
+        width: min(460px, 100%);
+        background: var(--card);
+        z-index: 31;
+        transform: translateX(100%);
+        transition: 0.25s;
+        overflow: auto;
+        padding: 22px;
+      }
+      .drawer.open {
+        transform: none;
+      }
+      .modal {
+        position: fixed;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        width: min(440px, calc(100% - 32px));
+        background: var(--card);
+        border-radius: 16px;
+        z-index: 32;
+        padding: 22px;
+        display: none;
+      }
+      .modal.open {
+        display: block;
+      }
+      .modal.wide {
+        width: min(640px, calc(100% - 32px));
+        max-height: calc(100vh - 48px);
+        overflow: auto;
+      }
+      .x {
+        border: 0;
+        background: var(--soft);
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 16px;
+      }
+      .toast {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--ink);
+        color: #fff;
+        padding: 11px 18px;
+        border-radius: 10px;
+        z-index: 40;
+        opacity: 0;
+        transition: 0.2s;
+        pointer-events: none;
+      }
+      .toast.show {
+        opacity: 1;
+      }
+      .pop {
+        position: absolute;
+        right: 24px;
+        top: 56px;
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        box-shadow: 0 12px 30px -10px rgba(0, 0, 0, 0.2);
+        padding: 8px;
+        min-width: 200px;
+        display: none;
+        z-index: 20;
+      }
+      .pop.open {
+        display: block;
+      }
+      .pop a,
+      .pop button {
+        display: block;
+        width: 100%;
+        text-align: left;
+        padding: 8px 10px;
+        border-radius: 8px;
+        border: 0;
+        background: none;
+        cursor: pointer;
+      }
+      .pop a:hover,
+      .pop button:hover {
+        background: var(--soft);
+      }
+
+      @media (max-width: 1000px) {
+        .g4 {
+          grid-template-columns: repeat(2, 1fr);
+        }
+        .g3,
+        .g-21,
+        .g-ob {
+          grid-template-columns: 1fr;
+        }
+      }
+      @media (max-width: 820px) {
+        .auth-wrap {
+          grid-template-columns: 1fr;
+        }
+        .auth-art {
+          display: none;
+        }
+        .shell {
+          grid-template-columns: 1fr;
+        }
+        aside {
+          position: fixed;
+          left: 0;
+          top: 0;
+          z-index: 35;
+          width: 260px;
+          transform: translateX(-100%);
+          transition: 0.25s;
+        }
+        aside.open {
+          transform: none;
+        }
+        .menu-btn {
+          display: block;
+        }
+        .search {
+          display: none;
+        }
+        main {
+          padding: 18px 16px 60px;
+        }
+        .top {
+          padding: 10px 16px;
+        }
+        .g2,
+        .g4 {
+          grid-template-columns: 1fr;
+        }
+        .kv {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+    <!-- shadcn/ui-style layer + Lucide icons (shadcn's icon set). Overrides the base styles above. -->
+    <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/duotone/style.css" />
+    <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css" />
+    <style>
+      :root{--ring:rgba(33,31,36,.28);--shadow-sm:0 1px 2px rgba(33,31,36,.06);--shadow-md:0 4px 12px -2px rgba(33,31,36,.12),0 2px 4px -2px rgba(33,31,36,.08);--shadow-lg:0 12px 32px -8px rgba(33,31,36,.22),0 4px 8px -4px rgba(33,31,36,.1)}
+      body{font-family:"Geist","Instrument Sans",system-ui,sans-serif;font-size:14px;-webkit-font-smoothing:antialiased;letter-spacing:-.005em}
+      .mono,code,pre,.code,.mid{font-family:"Geist Mono","JetBrains Mono",monospace!important}
+      h1{font-weight:700;letter-spacing:-.025em}h2,h3{font-weight:600;letter-spacing:-.015em}
+      /* icons */
+      i.li{font-size:1.18em;line-height:1;vertical-align:-.2em;flex:none;display:inline-block}
+      .ph-duotone:before{opacity:.28}
+      aside a span i.li{font-size:19px;vertical-align:-4px}
+      aside a.on .ph-duotone:before{opacity:.35}
+      .drop i.li{font-size:32px}
+      .empty-state .box i.li{font-size:72px;color:var(--muted)}
+      /* buttons */
+      .btn{height:36px;padding:0 16px;border-radius:8px;border:1px solid var(--line);font-size:14px;font-weight:500;gap:8px;box-shadow:var(--shadow-sm);transition:background .15s,border-color .15s,color .15s}
+      .btn:hover{background:var(--soft);border-color:var(--line)}
+      .btn.sm{height:32px;padding:0 12px;font-size:13px;border-radius:7px}
+      .btn.primary:hover{background:var(--brand-hover);border-color:var(--brand-hover)}
+      .btn.danger{color:var(--bad)}.btn.danger:hover{background:var(--bad-soft)}
+      .btn:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible{outline:none;box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--ring)!important}
+      .searchbox .btn{height:auto;box-shadow:none}
+      /* inputs */
+      input:not([type=checkbox]):not([type=radio]):not([type=color]):not([type=file]),select{height:36px;padding:0 12px;border:1px solid var(--line);border-radius:8px;font-size:14px;box-shadow:var(--shadow-sm);background:var(--card)}
+      textarea{padding:8px 12px;border:1px solid var(--line);border-radius:8px;font-size:14px;box-shadow:var(--shadow-sm)}
+      input:focus,select:focus,textarea:focus{border-color:#B9B4AD;box-shadow:0 0 0 3px rgba(33,31,36,.08)}
+      input[type=checkbox],input[type=radio]{accent-color:var(--ink);width:16px;height:16px}
+      label{font-size:13.5px;font-weight:500}
+      .searchbox{border:1px solid var(--line);border-radius:8px;box-shadow:var(--shadow-sm)}
+      .searchbox input,.searchbox select{box-shadow:none!important;border:0!important;border-radius:0!important}
+      .searchbox select{border-right:1px solid var(--line)!important;background:var(--soft)}
+      .search input{height:38px!important;box-shadow:none!important}
+      .search:before{content:""!important;width:16px;height:16px;top:11px!important;left:12px!important;background:var(--muted);-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.3-4.3'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.3-4.3'/%3E%3C/svg%3E") center/contain no-repeat}
+      /* cards */
+      .card{border:1px solid var(--line)!important;border-radius:12px!important;box-shadow:var(--shadow-sm)!important}
+      .card h3{font-size:15px}
+      .kpi small{font-size:13px;font-weight:500;color:var(--muted)}
+      /* tabs (shadcn segmented) */
+      .tabs{display:inline-flex;gap:2px;padding:4px;background:var(--soft);border:0;border-radius:10px;margin-bottom:16px;max-width:100%}
+      .tabs button{border:0!important;border-radius:7px;padding:6px 12px;font-size:13.5px;font-weight:500;color:var(--muted);margin:0}
+      .tabs button:hover{color:var(--ink)}
+      .tabs button.on{background:var(--card);color:var(--ink);box-shadow:var(--shadow-sm)}
+      /* badges */
+      .pill{border-radius:6px;padding:2px 8px;font-size:12px;font-weight:600;border:1px solid transparent;line-height:1.5}
+      .pill:not(.ok):not(.warn):not(.bad):not(.brand){border-color:var(--line);background:var(--card)}
+      .chip{border-radius:7px}
+      /* tables */
+      .tbl-wrap{border-radius:12px;box-shadow:var(--shadow-sm)}
+      th{background:transparent;text-transform:none;letter-spacing:0;font-size:12.5px;font-weight:500;color:var(--muted);border-bottom:1px solid var(--line);height:40px}
+      td{border-top:0;border-bottom:1px solid #EFECE6;font-size:14px}
+      tbody tr:last-child td{border-bottom:0}
+      tr.click:hover td{background:#FAF8F3}
+      /* overlays */
+      .scrim{background:rgba(20,18,22,.45);backdrop-filter:blur(2px)}
+      .modal{border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow-lg);padding:24px}
+      .drawer{border-left:1px solid var(--line);box-shadow:var(--shadow-lg)}
+      .x{background:transparent;border-radius:6px;opacity:.7;width:30px;height:30px;display:grid;place-items:center}
+      .x:hover{background:var(--soft);opacity:1}
+      .menu{border-radius:10px;padding:4px;box-shadow:var(--shadow-md)}
+      .menu>button{border-radius:6px;padding:7px 8px;font-size:14px}
+      .menu>button:hover,.menu>button.on{background:var(--soft);color:var(--ink)}
+      .pop{border-radius:10px;box-shadow:var(--shadow-md);padding:4px}
+      .toast{left:auto;right:20px;bottom:20px;transform:none;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow-lg);font-weight:500;padding:12px 16px}
+      .promo{border-radius:12px}
+      aside a{border-radius:8px;font-size:14px}
+      .search input{padding-left:36px!important}
+      .hm-range select{height:38px!important;padding:0 8px!important;border:0!important;box-shadow:none!important;background:transparent!important}
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <div class="scrim" id="scrim"></div>
+    <div class="drawer" id="drawer"></div>
+    <div class="modal" id="modal"></div>
+    <div class="toast" id="toast"></div>
+
+    <script>
+      /* ======================================================================
+   Bizpole Pay — clickable prototype. All data is mock and lives in memory.
+   Routes: #/login #/signup #/otp #/forgot #/onboarding #/home #/transactions
+   #/settlements #/chargebacks #/reports #/checkout #/links #/subscriptions
+   #/split #/payouts #/analytics #/customers #/products #/settings #/developer
+   ====================================================================== */
+
+      const $ = (s) => document.querySelector(s);
+      const inr = (p) =>
+        (p < 0 ? "−₹" : "₹") +
+        (Math.abs(p) / 100).toLocaleString("en-IN", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        });
+      const esc = (s) =>
+        String(s).replace(
+          /[&<>"']/g,
+          (c) =>
+            ({
+              "&": "&amp;",
+              "<": "&lt;",
+              ">": "&gt;",
+              '"': "&quot;",
+              "'": "&#39;",
+            }[c])
+        );
+      const fmtDate = (d) =>
+        d.toLocaleDateString("en-IN", { day: "2-digit", month: "short" }) +
+        ", " +
+        d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+      function toast(m) {
+        const t = $("#toast");
+        t.textContent = m;
+        t.classList.add("show");
+        clearTimeout(t._h);
+        t._h = setTimeout(() => t.classList.remove("show"), 2200);
+      }
+
+      /* ---------- state ---------- */
+      const state = {
+        user: null,
+        mode: "test",
+        onboarding: {
+          PAN_DETAILS: "done",
+          BUSINESS_DETAILS: "done",
+          BANK_ACCOUNT: "todo",
+          WEBSITE_DETAILS: "todo",
+          KYC_DOCUMENTS: "todo",
+        },
+        saltShown: false,
+      };
+      const STEPS = [
+        ["PAN_DETAILS", "PAN details", "PAN number and name as on PAN"],
+        [
+          "BUSINESS_DETAILS",
+          "Business details",
+          "Legal name, type, category, address, GSTIN",
+        ],
+        [
+          "BANK_ACCOUNT",
+          "Bank account",
+          "Settlement account, verified by a ₹1 penny-drop",
+        ],
+        [
+          "WEBSITE_DETAILS",
+          "Website details",
+          "Website/app with terms, refund, privacy and contact pages",
+        ],
+        ["KYC_DOCUMENTS", "KYC documents", "Documents for your business type"],
+      ];
+
+      /* ---------- deterministic mock data ---------- */
+      let seed = 7;
+      const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+      const pick = (a) => a[Math.floor(rnd() * a.length)];
+      const NAMES = [
+        "Asha Menon",
+        "Rahul Nair",
+        "Priya Sharma",
+        "Arjun Das",
+        "Neha Gupta",
+        "Vikram Rao",
+        "Sneha Iyer",
+        "Karan Mehta",
+        "Divya Pillai",
+        "Rohan Joshi",
+        "Meera Kurup",
+        "Aditya Singh",
+      ];
+      const MODES = [
+        "UPI",
+        "UPI",
+        "UPI",
+        "Credit Card",
+        "Debit Card",
+        "Net Banking",
+        "Wallet",
+        "EMI",
+      ];
+      const BANKS = {
+        UPI: "—",
+        "Credit Card": "HDFC",
+        "Debit Card": "SBI",
+        "Net Banking": "ICICI",
+        Wallet: "PhonePe",
+        EMI: "Axis",
+      };
+      const now = new Date();
+
+      function makeTxns(prefix, n) {
+        return Array.from({ length: n }, (_, i) => {
+          const r = rnd(),
+            status =
+              r < 0.78
+                ? "SUCCESS"
+                : r < 0.9
+                ? "FAILURE"
+                : r < 0.96
+                ? "PENDING"
+                : "USER_CANCELLED";
+          const name = pick(NAMES),
+            mode = pick(MODES);
+          const d = new Date(now - i * 3.7 * 3600e3 - rnd() * 3600e3);
+          return {
+            txnid: `${prefix}TXN${String(240000 + n - i)}`,
+            mihpayid: String(19000000000 + Math.floor(rnd() * 9e8)),
+            amount: Math.round(199 + rnd() * 9800) * 100,
+            status,
+            mode,
+            bank: BANKS[mode],
+            name,
+            email: name.split(" ")[0].toLowerCase() + "@example.in",
+            phone: "98" + String(Math.floor(rnd() * 1e8)).padStart(8, "0"),
+            product: pick([
+              "Pro plan – monthly",
+              "Order #A" + (1000 + i),
+              "Course fee",
+              "Consultation",
+              "Annual membership",
+            ]),
+            date: d,
+            refunded: 0,
+            error:
+              status === "FAILURE"
+                ? pick([
+                    "Bank declined",
+                    "Insufficient funds",
+                    "Authentication failed",
+                    "Transaction timed out",
+                  ])
+                : "",
+          };
+        });
+      }
+      const data = { test: makeTxns("T", 64), live: [] };
+      const refunds = { test: [], live: [] };
+      const REFUND_REASONS = [
+        "Customer request",
+        "Duplicate payment",
+        "Order cancelled",
+        "Item out of stock",
+      ];
+      data.test
+        .filter((t) => t.status === "SUCCESS")
+        .slice(3, 17)
+        .forEach((t, i) => {
+          const amt = i % 3 ? t.amount : Math.round(t.amount / 2);
+          const status =
+            i === 0 || i === 5
+              ? "QUEUED"
+              : i === 3
+              ? "IN_PROGRESS"
+              : i === 9
+              ? "FAILED"
+              : "SUCCESS";
+          if (status !== "FAILED") t.refunded = amt;
+          const date = new Date(
+            Math.min(
+              now.getTime() - 9e5,
+              t.date.getTime() + (6 + (i % 3) * 20) * 3600e3
+            )
+          );
+          refunds.test.push({
+            id: "RF" + (8100 + i),
+            txnid: t.txnid,
+            name: t.name,
+            mode: t.mode,
+            amount: amt,
+            captured: t.amount,
+            status,
+            reason: REFUND_REASONS[i % REFUND_REASONS.length],
+            requestId: String(1180000000 + Math.floor(rnd() * 9e7)),
+            arn: status === "SUCCESS" ? "7452" + Math.floor(rnd() * 1e9) : "—",
+            date,
+          });
+        });
+      // T+1: each day's successful payments settle the next day, net of 2% fee, 18% GST on the fee, and refunds.
+      // If refunds exceed a day's collections, the shortfall is carried forward to the next settlement (never a negative payout).
+      function settlementsFor(mode) {
+        const day = (d) => d.toDateString();
+        const out = [];
+        let carry = 0;
+        for (let i = 8; i >= 1; i--) {
+          const cap = new Date(now - i * 864e5),
+            txns = data[mode].filter(
+              (t) => t.status === "SUCCESS" && day(t.date) === day(cap)
+            );
+          if (!txns.length) continue;
+          const gross = txns.reduce((a, t) => a + t.amount, 0),
+            fee = Math.round(gross * 0.02),
+            tax = Math.round(fee * 0.18);
+          const ref = refunds[mode]
+            .filter((r) => r.status === "SUCCESS" && day(r.date) === day(cap))
+            .reduce((a, r) => a + r.amount, 0);
+          const carriedIn = carry,
+            raw = gross - fee - tax - ref - carriedIn;
+          carry = raw < 0 ? -raw : 0;
+          out.unshift({
+            id: "STL" + (52010 - i),
+            utr: "UTIBR" + Math.floor(rnd() * 1e10),
+            gross,
+            fee,
+            tax,
+            ref,
+            carriedIn,
+            carriedOut: carry,
+            net: Math.max(0, raw),
+            date: new Date(cap.getTime() + 864e5),
+            status: i === 1 ? "PENDING" : "PROCESSED",
+            count: txns.length,
+            txnids: txns.map((t) => t.txnid),
+          });
+        }
+        return out;
+      }
+      const settlements = { test: settlementsFor("test"), live: [] };
+      const links = {
+        test: [
+          {
+            id: "PL1042",
+            desc: "Consultation fee",
+            amount: 150000,
+            customer: "Rahul Nair",
+            status: "PAID",
+            url: "https://pay.bizpolepay.example/l/8fK2",
+            expires: "15 Nov",
+          },
+          {
+            id: "PL1043",
+            desc: "Workshop seat",
+            amount: 249900,
+            customer: "Neha Gupta",
+            status: "ACTIVE",
+            url: "https://pay.bizpolepay.example/l/Qa91",
+            expires: "20 Nov",
+          },
+          {
+            id: "PL1044",
+            desc: "Open donation",
+            amount: null,
+            customer: "—",
+            status: "ACTIVE",
+            url: "https://pay.bizpolepay.example/l/Zx07",
+            expires: "—",
+          },
+          {
+            id: "PL1039",
+            desc: "Invoice INV-221",
+            amount: 1200000,
+            customer: "Karan Mehta",
+            status: "EXPIRED",
+            url: "https://pay.bizpolepay.example/l/Lm33",
+            expires: "28 Oct",
+          },
+        ],
+        live: [],
+      };
+      const webhooks = {
+        test: [
+          {
+            url: "https://shop.example.in/hooks/bizpolepay",
+            events: ["payment.success", "payment.failed", "refund.processed"],
+            active: true,
+          },
+        ],
+        live: [],
+      };
+      const apiKeys = {
+        test: [
+          {
+            name: "Backend server",
+            prefix: "pn_test_4f9a",
+            created: "28 Oct",
+            last: "2 min ago",
+          },
+        ],
+        live: [],
+      };
+
+      const D = () => data[state.mode];
+      const isLive = () => state.mode === "live";
+      const liveLocked = () =>
+        isLive() && Object.values(state.onboarding).some((v) => v !== "done");
+
+      /* ---------- router ---------- */
+      const NAV = [
+        [
+          "TRACK",
+          [
+            ["home", "<i data-icon=layout-dashboard class=li></i>", "Business summary"],
+            ["transactions", "<i data-icon=arrow-left-right class=li></i>", "Transactions"],
+            ["settlements", "<i data-icon=landmark class=li></i>", "Settlements"],
+            ["chargebacks", "<i data-icon=shield-alert class=li></i>", "Chargebacks"],
+            ["reports", "<i data-icon=file-chart-column class=li></i>", "Reports"],
+          ],
+        ],
+        [
+          "PAYMENT PRODUCTS",
+          [
+            ["checkout", "<i data-icon=panels-top-left class=li></i>", "Manage checkout"],
+            ["links", "<i data-icon=link class=li></i>", "Payment links"],
+            ["subscriptions", "<i data-icon=repeat class=li></i>", "Subscriptions"],
+            ["split", "<i data-icon=split class=li></i>", "Split & transfer"],
+            ["payouts", "<i data-icon=send class=li></i>", "Payouts"],
+          ],
+        ],
+        [
+          "INSIGHTS",
+          [
+            ["analytics", "<i data-icon=chart-pie class=li></i>", "Payment analytics"],
+            ["customers", "<i data-icon=users class=li></i>", "Customers"],
+          ],
+        ],
+        [
+          "ACCOUNT",
+          [
+            ["products", "<i data-icon=sparkles class=li></i>", "Explore products"],
+            ["onboarding", "<i data-icon=list-checks class=li></i>", "Onboarding"],
+            ["settings", "<i data-icon=settings class=li></i>", "Settings"],
+            ["developer", "<i data-icon=code-xml class=li></i>", "Developer"],
+          ],
+        ],
+      ];
+      const PUBLIC = ["login", "signup", "otp", "forgot"];
+
+      function route() {
+        const r = (location.hash.replace(/^#\/?/, "") || "login").split("?")[0];
+        if (!state.user && !PUBLIC.includes(r)) return go("login");
+        if (state.user && PUBLIC.includes(r)) return go("home");
+        closeAll();
+        if (PUBLIC.includes(r)) {
+          $("#root").innerHTML = AUTH[r]();
+          bindAuth(r);
+          return;
+        }
+        const page = PAGES[r] || PAGES.home;
+        $("#root").innerHTML = shell(r, page());
+        bindShell();
+        (BIND[r] || (() => {}))();
+        window.scrollTo(0, 0);
+      }
+      const go = (r) => {
+        location.hash = "#/" + r;
+      };
+      window.addEventListener("hashchange", route);
+
+      /* ---------- auth pages ---------- */
+      const authArt = `<div class="auth-art"><a class="logo" href="index.html"><i></i>Bizpole Pay</a>
+  <div><h1>Every rupee,<br>accounted for.</h1><p>Collect payments over UPI, cards, net banking and wallets. Track settlements and refunds in one place.</p></div>
+  <p class="mono" style="opacity:.6">Payments processed by PayU</p></div>`;
+      const AUTH = {
+        login:
+          () => `<div class="auth-wrap">${authArt}<div class="auth-form"><form class="auth-card" id="f">
+    <h2>Log in to </h2><p class="muted" style="margin:0 0 18px">Welcome back.</p>
+    <label>Email</label><input id="em" type="email" placeholder="you@business.in" value="demo@bizpolepay.example" required>
+    <label>Password</label><input id="pw" type="password" placeholder="••••••••" value="demo1234" required>
+    <div class="between" style="margin:10px 0 16px"><a class="linkish" href="#/otp">Log in with OTP</a><a class="linkish" href="#/forgot">Forgot password?</a></div>
+    <button class="btn primary block">Log in</button>
+    <div class="or">or</div>
+    <button type="button" class="btn block" id="sso">Continue with company SSO</button>
+    <p class="muted" style="text-align:center;margin-top:18px">New to Bizpole Pay? <a class="linkish" href="#/signup">Sign up</a></p>
+  </form></div></div>`,
+        signup:
+          () => `<div class="auth-wrap">${authArt}<div class="auth-form"><form class="auth-card" id="f">
+    <h2>Create your account</h2><p class="muted" style="margin:0 0 18px">You start in test mode. Go live after onboarding.</p>
+    <label>Full name</label><input required placeholder="Your name">
+    <label>Work email</label><input type="email" required placeholder="you@business.in">
+    <label>Mobile</label><input type="tel" required placeholder="+91 98xxxxxx10">
+    <label>Password</label><input type="password" required minlength="8" placeholder="At least 8 characters">
+    <div style="height:16px"></div><button class="btn primary block">Create account</button>
+    <p class="muted" style="text-align:center;margin-top:18px">Already have an account? <a class="linkish" href="#/login">Log in</a></p>
+  </form></div></div>`,
+        otp: () => `<div class="auth-wrap">${authArt}<div class="auth-form"><form class="auth-card" id="f">
+    <h2>Log in with OTP</h2><p class="muted" style="margin:0 0 18px">We'll send a 6-digit code to your email or mobile.</p>
+    <label>Email or mobile</label><input id="who" required placeholder="you@business.in">
+    <div id="codebox" style="display:none"><label>One-time code</label><input id="code" inputmode="numeric" maxlength="6" placeholder="6-digit code"><p class="muted" style="font-size:12.5px">Demo: any 6 digits.</p></div>
+    <div style="height:16px"></div><button class="btn primary block" id="otpbtn">Send code</button>
+    <p class="muted" style="text-align:center;margin-top:18px"><a class="linkish" href="#/login">Back to password login</a></p>
+  </form></div></div>`,
+        forgot:
+          () => `<div class="auth-wrap">${authArt}<div class="auth-form"><form class="auth-card" id="f">
+    <h2>Reset password</h2><p class="muted" style="margin:0 0 18px">Enter your email and we'll send a reset code.</p>
+    <label>Email</label><input type="email" required placeholder="you@business.in">
+    <div style="height:16px"></div><button class="btn primary block">Send reset code</button>
+    <p class="muted" style="text-align:center;margin-top:18px"><a class="linkish" href="#/login">Back to login</a></p>
+  </form></div></div>`,
+      };
+      function login(name) {
+        state.user = {
+          name: name || "Jithin Krishna",
+          email: "demo@bizpolepay.example",
+        };
+        go("home");
+        toast("Logged in · test mode");
+      }
+      function bindAuth(r) {
+        const f = $("#f");
+        if (r === "login") {
+          f.onsubmit = (e) => {
+            e.preventDefault();
+            login();
+          };
+          $("#sso").onclick = () => {
+            toast("Redirecting to your identity provider…");
+            setTimeout(login, 700);
+          };
+        }
+        if (r === "signup")
+          f.onsubmit = (e) => {
+            e.preventDefault();
+            login(f.querySelector("input").value);
+            toast("Account created · test MID issued");
+          };
+        if (r === "forgot")
+          f.onsubmit = (e) => {
+            e.preventDefault();
+            toast("Reset code sent");
+            go("login");
+          };
+        if (r === "otp")
+          f.onsubmit = (e) => {
+            e.preventDefault();
+            if ($("#codebox").style.display === "none") {
+              $("#codebox").style.display = "block";
+              $("#otpbtn").textContent = "Verify & log in";
+              toast("Code sent");
+              return;
+            }
+            if (/^\d{6}$/.test($("#code").value)) login();
+            else toast("Enter the 6-digit code");
+          };
+      }
+
+      /* ---------- shell ---------- */
+      function shell(r, body) {
+        const nav = NAV.map(
+          ([g, items]) =>
+            `<h6>${g}</h6>` +
+            items
+              .map(
+                ([k, ic, t]) =>
+                  `<a href="#/${k}" class="${
+                    k === r ? "on" : ""
+                  }"><span>${ic}</span>${t}</a>`
+              )
+              .join("")
+        ).join("");
+        return `<div class="shell">
+    <aside id="aside"><a class="logo" href="#/home" style="padding:4px 10px 6px"><i></i>Bizpole Pay</a>${nav}
+      ${
+        liveLocked() || !isLive()
+          ? `<a class="side-cta" href="#/onboarding"><span class="r"><i data-icon=rocket class=li></i></span><b>Go live faster</b><small>Complete onboarding and start accepting payments.</small><em><i data-icon=chevron-right class=li></i></em></a>`
+          : ""
+      }</aside>
+    <div>
+      <div class="top">
+        <button class="menu-btn" id="menu" aria-label="Menu">☰</button>
+        <div class="search"><input id="q" placeholder="Search transactions, payment links, refunds…"></div>
+        <button class="mid" id="midcopy" title="Copy merchant ID">MID • ${
+          isLive() ? "87100421" : "T-55120934"
+        } <span aria-hidden="true"><i data-icon=copy class=li></i></span></button>
+        <button class="modepill ${
+          isLive() ? "live" : ""
+        }" id="mode" title="Switch between test and live mode">${
+          isLive() ? "LIVE MODE" : "TEST MODE"
+        }</button>
+        <button class="bell" id="bell" aria-label="Notifications"><i class="ph-duotone ph-bell li" style="font-size:22px"></i><i class="bdot"></i></button>
+        <button class="avatar" id="av">${esc(state.user.name[0])}</button>
+        <div class="pop" id="pop"><div style="padding:8px 10px"><b>${esc(
+          state.user.name
+        )}</b><div class="muted" style="font-size:12.5px">${esc(
+          state.user.email
+        )}</div></div>
+          <a href="#/settings">Settings</a><a href="#/developer">API keys</a><button id="logout">Log out</button></div>
+      </div>
+      <main>${body}</main>
+    </div></div>`;
+      }
+      function bindShell() {
+        $("#mode").onclick = () => {
+          state.mode = isLive() ? "test" : "live";
+          route();
+          toast(`Switched to ${state.mode} mode`);
+        };
+        $("#midcopy").onclick = () => {
+          const id = isLive() ? "87100421" : "T-55120934";
+          navigator.clipboard && navigator.clipboard.writeText(id);
+          toast("Merchant ID copied");
+        };
+        $("#bell").onclick = () => toast("No new notifications");
+        $("#av").onclick = (e) => {
+          e.stopPropagation();
+          $("#pop").classList.toggle("open");
+        };
+        document.onclick = () =>
+          $("#pop") && $("#pop").classList.remove("open");
+        $("#logout").onclick = () => {
+          state.user = null;
+          go("login");
+        };
+        $("#menu").onclick = (e) => {
+          e.stopPropagation();
+          $("#aside").classList.toggle("open");
+        };
+        $("#q").onkeydown = (e) => {
+          if (e.key === "Enter") {
+            location.hash = "#/transactions";
+            setTimeout(() => {
+              const s = $("#search");
+              if (s) {
+                s.value = e.target.value;
+                s.dispatchEvent(new Event("input"));
+              }
+            }, 0);
+          }
+        };
+      }
+      const head = (t, p, actions = "") =>
+        `<div class="page-h"><div><h1>${t}</h1>${
+          p ? `<p>${p}</p>` : ""
+        }</div><div class="row" style="flex:none">${actions}</div></div>`;
+      const statusPill = (s) => {
+        const m = {
+          SUCCESS: "ok",
+          PAID: "ok",
+          PROCESSED: "ok",
+          ACTIVE: "ok",
+          WON: "ok",
+          DELIVERED: "ok",
+          READY: "ok",
+          VERIFIED: "ok",
+          RELEASED: "ok",
+          CREATED: "ok",
+          ACCEPTED: "ok",
+          LIVE: "ok",
+          PENDING: "warn",
+          QUEUED: "warn",
+          IN_PROGRESS: "warn",
+          OPEN: "warn",
+          "EVIDENCE SUBMITTED": "warn",
+          PARTIALLY_PAID: "warn",
+          SCHEDULED: "warn",
+          WAITING_FOR_RETRY: "warn",
+          PENDING_REGISTRATION: "warn",
+          PAUSED: "warn",
+          SUBMITTED: "warn",
+          UNDER_REVIEW: "warn",
+          NEW: "warn",
+          ACTION_REQUIRED: "warn",
+          FAILURE: "bad",
+          FAILED: "bad",
+          EXPIRED: "bad",
+          LOST: "bad",
+          USER_CANCELLED: "bad",
+          CANCELLED: "bad",
+          REVERSED: "bad",
+          REVOKED: "bad",
+          REJECTED: "bad",
+          DEACTIVATED: "",
+          INACTIVE: "",
+        };
+        return `<span class="pill ${m[s] || ""}">${s
+          .replace(/_/g, " ")
+          .toLowerCase()
+          .replace(/^./, (c) => c.toUpperCase())}</span>`;
+      };
+      const locked = (
+        what
+      ) => `<div class="card empty"><div style="font-size:30px"><i data-icon=lock class=li></i></div><h3 style="margin:8px 0">${what} unlocks in live mode after onboarding</h3>
+  <p class="muted">Complete the remaining onboarding steps and we'll activate your live account.</p><a class="btn primary" href="#/onboarding">Resume onboarding</a></div>`;
+
+      /* ---------- drawer / modal ---------- */
+      function openDrawer(html) {
+        $("#drawer").innerHTML = html;
+        $("#drawer").classList.add("open");
+        $("#scrim").classList.add("open");
+      }
+      // openModal(html, { wide: true }) gives a 640px dialog for longer forms.
+      function openModal(html, opts = {}) {
+        $("#modal").innerHTML = html;
+        $("#modal").classList.toggle("wide", !!opts.wide);
+        $("#modal").classList.add("open");
+        $("#scrim").classList.add("open");
+      }
+      function closeAll() {
+        ["#drawer", "#modal", "#scrim"].forEach((s) =>
+          $(s).classList.remove("open")
+        );
+      }
+      $("#scrim").onclick = closeAll;
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") closeAll();
+      });
+
+      /* ======================================================================
+   Pages
+   ====================================================================== */
+      const PAGES = {};
+      const BIND = {};
+
+      // Page-specific CSS: call addStyle("page-id", `css`) from a page file; injected once.
+      function addStyle(id, css) {
+        if (document.getElementById("style-" + id)) return;
+        const s = document.createElement("style");
+        s.id = "style-" + id;
+        s.textContent = css;
+        document.head.appendChild(s);
+      }
+    </script>
+    <script src="pages/home.js"></script>
+    <script src="pages/transactions.js"></script>
+    <script src="pages/settlements.js"></script>
+    <script src="pages/chargebacks.js"></script>
+    <script src="pages/reports.js"></script>
+    <script src="pages/checkout.js"></script>
+    <script src="pages/links.js"></script>
+    <script src="pages/subscriptions.js"></script>
+    <script src="pages/split.js"></script>
+    <script src="pages/payouts.js"></script>
+    <script src="pages/analytics.js"></script>
+    <script src="pages/customers.js"></script>
+    <script src="pages/products.js"></script>
+    <script src="pages/onboarding.js"></script>
+    <script src="pages/settings.js"></script>
+    <script src="pages/developer.js"></script>
+    <script>
+      // Icons: <i data-icon=name class=li> → Phosphor Duotone glyph. Names are semantic; ICONS maps them to Phosphor.
+      const ICONS = { 'layout-dashboard':'squares-four','arrow-left-right':'arrows-left-right',landmark:'bank','shield-alert':'shield-warning','file-chart-column':'chart-bar','panels-top-left':'browser',link:'link-simple',repeat:'arrows-clockwise',split:'arrows-split',send:'paper-plane-tilt','chart-pie':'chart-pie-slice',users:'users-three',sparkles:'sparkle','list-checks':'list-checks',settings:'gear-six','code-xml':'code',lock:'lock-simple',rocket:'rocket-launch',copy:'copy',flag:'flag','file-text':'file-text','arrow-up-right':'arrow-up-right','chevron-right':'caret-right','chevron-left':'caret-left','chevron-down':'caret-down',download:'download-simple',upload:'upload-simple',calendar:'calendar-blank','list-filter':'funnel-simple',x:'x',file:'file','rotate-ccw':'arrow-counter-clockwise','credit-card':'credit-card',smartphone:'device-mobile',timer:'timer','refresh-cw':'arrows-clockwise','package-open':'package',info:'info','triangle-alert':'warning','chart-column':'chart-bar' };
+      const UTIL = new Set(['caret-right', 'caret-left', 'caret-down', 'x', 'download-simple', 'upload-simple', 'funnel-simple', 'copy', 'arrows-clockwise', 'arrow-up-right', 'calendar-blank', 'info']); // line-style utility icons
+      const drawIcons = () => document.querySelectorAll('i[data-icon]').forEach(el => { const n = ICONS[el.dataset.icon] || el.dataset.icon; el.className = (UTIL.has(n) ? 'ph-bold ph-' : 'ph-duotone ph-') + n + ' li'; el.removeAttribute('data-icon'); el.setAttribute('aria-hidden', 'true'); });
+      new MutationObserver(drawIcons).observe(document.body, { childList: true, subtree: true }); drawIcons();
+      route();
+    </script>
+  </body>
+</html>
