@@ -4,104 +4,198 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Bizpole Pay — Payments for Indian Businesses</title>
-<meta name="description" content="Accept UPI, cards, net banking, wallets and EMI. One dashboard for transactions, settlements, refunds and payment links. Payments processed by PayU.">
+<meta name="description" content="Collect payments online, share payment links, run subscriptions and pay vendors. One dashboard for transactions, settlements and refunds. Payments processed by PayU.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root{
-    /* Charcoal #211F24 · Solar yellow #F1C64B · Coral #E65F55 · Warm paper #F6F4EF · Graphite #343138 · Soft neutral #EEECE7 */
-    --ink:#211F24; --ink-2:#343138; --muted:#6F6A66; --line:#E3E0D9; --soft:#EEECE7;
-    --bg:#F6F4EF; --card:#FFFEFB; --brand:#E65F55; --brand-hover:#D14E44; --brand-soft:#FBE8E6; --brand-2:#F1C64B;
-    --accent:#F1C64B; --accent-soft:#FCF3D9; --ok:#2F8F5B; --warn:#B7861B;
-    --radius:14px; --shadow:0 10px 30px -12px rgba(33,31,36,.18);
+    /* Brand: Charcoal #211F24 · Coral #E65F55 · Solar yellow #F1C64B · Warm paper #F6F4EF */
+    --ink:#211F24; --ink-2:#343138; --ink-3:#4A464F; --muted:#6F6A66; --line:#E3E0D9; --soft:#EEECE7;
+    --bg:#F6F4EF; --card:#FFFEFB; --brand:#E65F55; --brand-hover:#D14E44; --brand-soft:#FBE8E6;
+    --sun:#F1C64B; --sun-soft:#FCF3D9; --ok:#2F8F5B; --ok-soft:#E4F2EA; --warn:#B7861B;
+    --on-ink:#F6F4EF; --on-ink-muted:#A9A4AD;
+    --r-sm:10px; --r:14px; --r-lg:22px;
+    --shadow:0 18px 40px -18px rgba(33,31,36,.28);
   }
   *{box-sizing:border-box}
   html{scroll-behavior:smooth}
-  body{margin:0;font-family:"Instrument Sans",system-ui,sans-serif;color:var(--ink);background:var(--bg);line-height:1.55}
+  @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important;animation:none!important}}
+  body{margin:0;font-family:"Instrument Sans",system-ui,sans-serif;color:var(--ink);background:var(--bg);line-height:1.55;-webkit-font-smoothing:antialiased}
   a{color:inherit;text-decoration:none}
-  .wrap{max-width:1180px;margin:0 auto;padding:0 20px}
-  .btn{display:inline-flex;align-items:center;gap:8px;border-radius:999px;padding:11px 20px;font-weight:600;font-size:15px;border:1.5px solid transparent;cursor:pointer;transition:.15s}
+  img,svg{display:block}
+  :focus-visible{outline:2.5px solid var(--brand);outline-offset:3px;border-radius:6px}
+  .wrap{max-width:1200px;margin:0 auto;padding:0 24px}
+  h1,h2,h3{letter-spacing:-.03em;line-height:1.08;margin:0}
+  h2{font-size:clamp(30px,3.6vw,44px)}
+  h3{font-size:19px;letter-spacing:-.015em;line-height:1.25}
+  p{margin:0}
+  .lead{font-size:18px;color:var(--muted);max-width:56ch}
+  .sec{padding:96px 0}
+  .sec-head{max-width:680px;margin-bottom:44px}
+  .sec-head p{margin-top:14px;font-size:17px;color:var(--muted)}
+  .center{text-align:center;margin-left:auto;margin-right:auto}
+
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:999px;padding:12px 22px;font:600 15px/1.2 inherit;border:1.5px solid transparent;cursor:pointer;transition:background .15s,border-color .15s,color .15s;white-space:nowrap}
   .btn-primary{background:var(--brand);color:#fff}
   .btn-primary:hover{background:var(--brand-hover)}
+  .btn-dark{background:var(--ink);color:var(--on-ink)}
+  .btn-dark:hover{background:var(--ink-2)}
   .btn-ghost{border-color:var(--line);background:var(--card)}
-  .btn-ghost:hover{border-color:var(--brand)}
-  .tag{display:inline-block;font:500 12px "JetBrains Mono",monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--ink);background:var(--accent-soft);border-radius:6px;padding:4px 8px}
+  .btn-ghost:hover{border-color:var(--ink)}
+  .link{font-weight:600;color:var(--brand);display:inline-flex;gap:6px;align-items:center}
+  .link:hover{color:var(--brand-hover);text-decoration:underline;text-underline-offset:3px}
 
-  /* header */
-  header{position:sticky;top:0;z-index:20;background:rgba(246,244,239,.88);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
-  .nav{display:flex;align-items:center;gap:28px;height:68px}
+  /* ---------- header ---------- */
+  .notice{background:var(--ink);color:var(--on-ink);font-size:13.5px;text-align:center;padding:8px 16px}
+  .notice a{color:var(--sun);font-weight:600}
+  header{position:sticky;top:0;z-index:30;background:rgba(246,244,239,.9);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+  .nav{display:flex;align-items:center;gap:32px;height:70px}
   .logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:20px;letter-spacing:-.02em}
-  .logo i{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,var(--accent) 0 50%,var(--brand) 50% 100%);display:block}
-  .nav ul{display:flex;gap:24px;list-style:none;margin:0;padding:0;font-weight:500;color:var(--ink-2)}
-  .nav ul a:hover{color:var(--brand)}
-  .nav .right{margin-left:auto;display:flex;gap:10px}
-  .menu-btn{display:none;margin-left:auto;background:none;border:0;font-size:24px}
+  .logo i{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,var(--sun) 0 50%,var(--brand) 50% 100%);display:block;flex:none}
+  .menu{display:flex;gap:4px;list-style:none;margin:0;padding:0;font-weight:500;color:var(--ink-2)}
+  .menu > li{position:relative}
+  .menu > li > a,.menu > li > button{display:flex;align-items:center;gap:6px;padding:10px 12px;border-radius:8px;background:none;border:0;font:inherit;color:inherit;cursor:pointer}
+  .menu > li > a:hover,.menu > li > button:hover,.menu > li > button[aria-expanded=true]{background:var(--soft);color:var(--ink)}
+  .menu button svg{transition:transform .15s}
+  .menu button[aria-expanded=true] svg{transform:rotate(180deg)}
+  .mega{position:absolute;top:calc(100% + 10px);left:-12px;width:560px;background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:12px;display:none;grid-template-columns:1fr 1fr;gap:4px}
+  .mega.open{display:grid}
+  .mega a{display:flex;gap:12px;padding:12px;border-radius:10px}
+  .mega a:hover{background:var(--bg)}
+  .mega b{display:block;font-size:15px;color:var(--ink)}
+  .mega span{font-size:13.5px;color:var(--muted);line-height:1.4}
+  .mega .ic{flex:none}
+  .nav .right{margin-left:auto;display:flex;gap:10px;align-items:center}
+  .nav .right .signin{font-weight:600;padding:10px 14px}
+  .nav .right .signin:hover{color:var(--brand)}
+  .menu-btn{display:none;margin-left:auto;background:none;border:1.5px solid var(--line);border-radius:10px;width:42px;height:42px;cursor:pointer;place-items:center}
 
-  /* hero */
-  .hero{padding:72px 0 56px;display:grid;grid-template-columns:1.05fr .95fr;gap:48px;align-items:center}
-  .hero h1{font-size:clamp(36px,5vw,58px);line-height:1.05;letter-spacing:-.035em;margin:14px 0 18px}
-  .hero h1 em{font-style:normal;color:var(--brand);background:linear-gradient(transparent 72%,var(--accent-soft) 72%,var(--accent-soft) 94%,transparent 94%)}
-  .hero p.lead{font-size:18px;color:var(--muted);max-width:520px;margin:0 0 28px}
-  .hero .ctas{display:flex;gap:12px;flex-wrap:wrap}
-  .stats{display:flex;gap:36px;margin-top:40px;flex-wrap:wrap}
-  .stats b{display:block;font-size:26px;letter-spacing:-.02em}
-  .stats span{color:var(--muted);font-size:14px}
+  .ic{width:40px;height:40px;border-radius:11px;display:grid;place-items:center;background:var(--sun-soft);color:var(--ink)}
+  .ic.coral{background:var(--brand-soft);color:var(--brand-hover)}
+  .ic.dark{background:var(--ink);color:var(--sun)}
+  .ic svg{width:21px;height:21px}
 
-  /* sign-in card */
-  .auth{background:var(--card);border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow);padding:30px;max-width:440px;justify-self:end;width:100%}
-  .auth h2{margin:0 0 4px;font-size:22px;letter-spacing:-.02em}
-  .auth .sub{color:var(--muted);margin:0 0 22px;font-size:14px}
-  .tabs{display:flex;background:var(--soft);border-radius:10px;padding:4px;margin-bottom:18px}
-  .tabs button{flex:1;border:0;background:none;padding:9px;border-radius:8px;font:600 14px inherit;color:var(--muted);cursor:pointer}
-  .tabs button[aria-selected=true]{background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.08)}
-  label{display:block;font-size:13px;font-weight:600;margin:14px 0 6px}
-  input{width:100%;padding:12px 14px;border:1.5px solid var(--line);border-radius:10px;font:15px inherit;background:var(--card)}
-  input:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 4px var(--brand-soft)}
-  .row{display:flex;justify-content:space-between;margin:10px 0 18px;font-size:13px}
-  .row a{color:var(--brand);font-weight:600}
-  .auth .btn{width:100%;justify-content:center}
-  .or{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:12px;margin:14px 0}
-  .or:before,.or:after{content:"";flex:1;height:1px;background:var(--line)}
-  .fine{font-size:12px;color:var(--muted);text-align:center;margin-top:16px}
-  .hidden{display:none}
+  /* ---------- hero ---------- */
+  .hero{padding:72px 0 40px}
+  .hero-top{display:grid;grid-template-columns:1.1fr .9fr;gap:56px;align-items:end;margin-bottom:48px}
+  .hero h1{font-size:clamp(40px,6.2vw,80px);letter-spacing:-.045em;line-height:.98}
+  .hero h1 .u{background:linear-gradient(transparent 70%,var(--sun) 70%,var(--sun) 90%,transparent 90%);padding:0 .04em}
+  .hero .lead{margin-bottom:26px}
+  .ctas{display:flex;gap:12px;flex-wrap:wrap}
+  .hero-note{margin-top:16px;font-size:14px;color:var(--muted)}
 
-  section{padding:72px 0}
-  .sec-head{max-width:640px;margin-bottom:36px}
-  .sec-head h2{font-size:clamp(28px,3.4vw,40px);letter-spacing:-.03em;line-height:1.1;margin:12px 0 10px}
-  .sec-head p{color:var(--muted);margin:0}
+  /* product showcase */
+  .show{background:var(--ink);border-radius:28px;padding:10px;box-shadow:0 50px 90px -40px rgba(33,31,36,.6)}
+  .show-tabs{display:flex;gap:4px;padding:6px;overflow-x:auto;scrollbar-width:none}
+  .show-tabs::-webkit-scrollbar{display:none}
+  .show-tabs button{flex:1;min-width:max-content;display:flex;align-items:center;justify-content:center;gap:10px;padding:14px 18px;border:0;border-radius:16px;background:none;color:var(--on-ink-muted);font:600 15px inherit;cursor:pointer;transition:background .15s,color .15s}
+  .show-tabs button:hover{color:var(--on-ink)}
+  .show-tabs button[aria-selected=true]{background:var(--ink-2);color:var(--on-ink);box-shadow:inset 0 -3px 0 var(--sun)}
+  .show-tabs svg{width:18px;height:18px}
+  .stage{background:var(--bg);border-radius:20px;min-height:440px;display:grid;grid-template-columns:.9fr 1.1fr;overflow:hidden}
+  .stage[hidden]{display:none}
+  .stage-copy{padding:44px 40px;display:flex;flex-direction:column;gap:14px;justify-content:center}
+  .stage-copy h3{font-size:28px;letter-spacing:-.03em}
+  .stage-copy p{color:var(--muted);font-size:16px}
+  .stage-copy ul{list-style:none;padding:0;margin:6px 0 4px;display:grid;gap:8px;font-size:15px}
+  .stage-copy li{display:flex;gap:10px;align-items:flex-start}
+  .stage-copy li:before{content:"";flex:none;width:18px;height:18px;margin-top:2px;border-radius:50%;background:var(--ok-soft) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232F8F5B' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 12.5l4 4 8-9'/%3E%3C/svg%3E") center/12px no-repeat}
+  .stage-art{position:relative;background:
+      radial-gradient(circle at 85% 15%,rgba(241,198,75,.55) 0 90px,transparent 91px),
+      radial-gradient(circle at 10% 95%,rgba(230,95,85,.22) 0 120px,transparent 121px),
+      var(--soft);
+    display:grid;place-items:center;padding:36px 28px}
+  .mock{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);width:100%;max-width:380px;padding:22px;font-size:14px}
+  .mock .row{display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .mock small{color:var(--muted);font-size:12.5px}
+  .mock .amt{font-size:32px;font-weight:700;letter-spacing:-.03em;margin:4px 0 14px}
+  .mock hr{border:0;border-top:1px dashed var(--line);margin:14px 0}
+  .opt{display:flex;align-items:center;gap:12px;border:1.5px solid var(--line);border-radius:12px;padding:11px 12px;margin-bottom:8px;font-weight:500}
+  .opt.on{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+  .opt em{font-style:normal;margin-left:auto;font-size:12px;color:var(--muted)}
+  .opt i{width:26px;height:26px;border-radius:7px;background:var(--soft);display:grid;place-items:center;font:700 10px "JetBrains Mono",monospace;font-style:normal}
+  .mock .pay{width:100%;margin-top:8px}
+  .pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;border-radius:999px;padding:4px 10px;background:var(--soft);color:var(--ink-2)}
+  .pill.ok{background:var(--ok-soft);color:#24704A}
+  .pill.wait{background:var(--sun-soft);color:#7A5B0C}
+  .pill.ok:before,.pill.wait:before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+  .url{font:500 13px "JetBrains Mono",monospace;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .url b{color:var(--brand);font-weight:600;font-family:"Instrument Sans";font-size:13px}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .chip{border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-size:13px;font-weight:500;background:var(--card)}
+  .list{display:grid;gap:2px;margin-top:6px}
+  .list .row{padding:10px 0;border-bottom:1px solid var(--soft)}
+  .list .row:last-child{border-bottom:0}
+  .list b{font-weight:600}
+  .meter{height:8px;border-radius:9px;background:var(--soft);overflow:hidden;margin:6px 0 2px}
+  .meter i{display:block;height:100%;background:var(--ok);border-radius:9px}
 
-  /* methods strip */
-  .methods{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px}
-  .methods span{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:8px 14px;font-weight:500;font-size:14px}
+  /* payment methods */
+  .methods{display:flex;flex-wrap:wrap;gap:10px 28px;align-items:center;justify-content:center;padding:36px 0 0;color:var(--ink-3);font-weight:600;font-size:15px}
+  .methods span{display:flex;align-items:center;gap:8px}
+  .methods span:before{content:"";width:6px;height:6px;border-radius:2px;background:var(--brand);transform:rotate(45deg)}
+  .methods .lbl{color:var(--muted);font-weight:500}
+  .methods .lbl:before{display:none}
 
-  /* product grid */
-  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:24px;transition:.2s}
-  .card:hover{transform:translateY(-3px);box-shadow:var(--shadow)}
-  .card .ic{width:40px;height:40px;border-radius:10px;display:grid;place-items:center;background:var(--accent-soft);color:var(--ink);font-size:20px;margin-bottom:14px}
-  .card h3{margin:0 0 6px;font-size:18px}
-  .card p{margin:0;color:var(--muted);font-size:15px}
+  /* ---------- operations ---------- */
+  .ops{display:grid;grid-template-columns:repeat(5,1fr);border:1px solid var(--line);border-radius:var(--r-lg);background:var(--card);overflow:hidden}
+  .op{padding:28px 24px 26px;border-right:1px solid var(--line);display:flex;flex-direction:column;gap:12px}
+  .op:last-child{border-right:0}
+  .op p{color:var(--muted);font-size:15px;flex:1}
+  .op .verb{font-size:13px;font-weight:600;color:var(--brand)}
 
-  /* dashboard preview */
-  .dash{background:var(--ink);border-radius:22px;padding:14px;box-shadow:0 40px 80px -30px rgba(33,31,36,.55)}
-  .dash-in{display:grid;grid-template-columns:210px 1fr;background:var(--card);border-radius:14px;overflow:hidden;min-height:470px}
-  .side{background:var(--ink);border-right:1px solid var(--ink);color:#D8D5D0;padding:16px 12px;font-size:13.5px}
-  .side h6{font:500 10.5px "JetBrains Mono",monospace;letter-spacing:.08em;color:var(--muted);margin:16px 8px 6px}
-  .side a{display:block;padding:7px 10px;border-radius:8px;color:var(--ink-2)}
-  .side a{color:#D8D5D0!important}
-  .side h6{color:#8E8A92!important}
-  .side a.on{background:var(--ink-2);color:#fff!important;font-weight:600;box-shadow:inset 3px 0 0 var(--accent)}
-  .main{padding:18px 22px}
+  /* ---------- no-website ---------- */
+  .dark-band{background:var(--ink);color:var(--on-ink)}
+  .dark-band .sec-head p{color:var(--on-ink-muted)}
+  .quad{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  .q{background:var(--ink-2);border-radius:var(--r-lg);padding:32px;display:grid;grid-template-columns:1fr 150px;gap:24px;align-items:center;min-height:220px}
+  .q p{color:var(--on-ink-muted);margin:10px 0 16px;font-size:15.5px}
+  .q .link{color:var(--sun)}
+  .q .link:hover{color:#FFD970}
+  .q-art{height:130px;position:relative}
+  .q-art > *{position:absolute;border-radius:14px}
+
+  /* ---------- workflow / integrations ---------- */
+  .integr{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+  .tile{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:24px;display:flex;flex-direction:column;gap:12px}
+  .tile p{color:var(--muted);font-size:15px;flex:1}
+  .tile .time{font-size:13px;font-weight:600;color:var(--ink-3);background:var(--soft);border-radius:999px;padding:4px 10px;align-self:flex-start}
+
+  /* ---------- industries ---------- */
+  .ind-head{display:flex;justify-content:space-between;align-items:end;gap:24px;margin-bottom:36px;flex-wrap:wrap}
+  .ind-head .sec-head{margin-bottom:0}
+  .arrows{display:flex;gap:8px}
+  .arrows button{width:48px;height:48px;border-radius:50%;border:1.5px solid var(--line);background:var(--card);cursor:pointer;display:grid;place-items:center;color:var(--ink)}
+  .arrows button:hover:not(:disabled){border-color:var(--ink)}
+  .arrows button:disabled{opacity:.35;cursor:default}
+  .track{display:grid;grid-auto-flow:column;grid-auto-columns:min(86%,760px);gap:20px;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:8px;scrollbar-width:none}
+  .track::-webkit-scrollbar{display:none}
+  .slide{scroll-snap-align:start;display:grid;grid-template-columns:1fr 1fr;border-radius:var(--r-lg);overflow:hidden;background:var(--card);border:1px solid var(--line);min-height:340px}
+  .slide-art{position:relative;overflow:hidden}
+  .slide-copy{padding:36px 32px;display:flex;flex-direction:column;gap:12px}
+  .slide-copy p{color:var(--muted)}
+  .slide-copy ul{margin:4px 0 8px;padding-left:18px;color:var(--ink-2);display:grid;gap:4px;font-size:15px}
+  .slide-copy .link{margin-top:auto}
+  .big-glyph{position:absolute;inset:0;display:grid;place-items:center;font-weight:700;font-size:140px;letter-spacing:-.06em;line-height:1}
+
+  /* ---------- dashboard ---------- */
+  .dash{background:var(--ink);border-radius:var(--r-lg);padding:12px;box-shadow:0 40px 80px -30px rgba(33,31,36,.55)}
+  .dash-in{display:grid;grid-template-columns:210px 1fr;background:var(--card);border-radius:14px;overflow:hidden;min-height:450px}
+  .side{background:var(--ink);color:#D8D5D0;padding:16px 12px;font-size:13.5px}
+  .side h6{font:600 11.5px inherit;color:#8E8A92;margin:16px 8px 6px}
+  .side a{display:block;padding:7px 10px;border-radius:8px;color:#D8D5D0}
+  .side a.on{background:var(--ink-2);color:#fff;font-weight:600;box-shadow:inset 3px 0 0 var(--sun)}
+  .main{padding:20px 24px}
   .topbar{display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap}
   .mid{font:500 12px "JetBrains Mono",monospace;background:var(--soft);border-radius:6px;padding:5px 8px}
   .mode{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600}
-  .switch{width:36px;height:20px;border-radius:999px;background:var(--warn);position:relative;cursor:pointer;border:0}
-  .switch:after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--card);transition:.2s}
+  .switch{width:38px;height:22px;border-radius:999px;background:var(--warn);position:relative;cursor:pointer;border:0}
+  .switch:after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:var(--card);transition:left .2s}
   .switch.live{background:var(--ok)}
-  .switch.live:after{left:18px}
-  .banner{background:var(--accent-soft);color:#6B5208;border-radius:8px;padding:8px 12px;font-size:13px;margin-bottom:14px}
-  .banner.live{background:#E4F2EA;color:#24704A}
+  .switch.live:after{left:19px}
+  .banner{background:var(--sun-soft);color:#6B5208;border-radius:8px;padding:9px 12px;font-size:13px;margin-bottom:14px}
+  .banner.live{background:var(--ok-soft);color:#24704A}
   .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px}
   .kpi{border:1px solid var(--line);border-radius:12px;padding:12px 14px}
   .kpi small{color:var(--muted);font-size:12px}
@@ -111,7 +205,8 @@
   .panel{border:1px solid var(--line);border-radius:12px;padding:12px 14px}
   .panel h5{margin:0 0 10px;font-size:13px}
   .bars{display:flex;align-items:flex-end;gap:8px;height:110px}
-  .bars i{flex:1;background:linear-gradient(180deg,var(--ink-2),var(--ink));border-radius:5px 5px 2px 2px;opacity:.9}
+  .bars i{flex:1;background:var(--ink);border-radius:5px 5px 2px 2px;transition:height .3s}
+  .bars i:last-child{background:var(--brand)}
   .steps{list-style:none;margin:0;padding:0;font-size:13px}
   .steps li{display:flex;align-items:center;gap:8px;padding:5px 0}
   .steps li:before{content:"";width:14px;height:14px;border-radius:50%;border:2px solid var(--line)}
@@ -121,235 +216,447 @@
   .health{display:flex;align-items:center;gap:8px;font-size:13px;margin-top:12px}
   .dot{width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 4px #D5EADC}
 
-  /* integration options */
-  .opts{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
-  .opt{border:1.5px solid var(--line);border-radius:var(--radius);padding:24px;background:var(--card)}
-  .opt .time{font:500 12px "JetBrains Mono",monospace;color:var(--accent)}
-  .opt h3{margin:8px 0 6px}
-  .opt p{color:var(--muted);margin:0;font-size:15px}
+  /* ---------- developers ---------- */
+  .dev{display:grid;grid-template-columns:1fr 1.1fr;gap:56px;align-items:start}
+  pre{background:var(--ink);color:#EEECE7;border-radius:var(--r-lg);padding:24px;overflow:auto;font:13px/1.65 "JetBrains Mono",monospace;margin:0}
+  pre .k{color:var(--sun)} pre .c{color:#8E8A92} pre .s{color:#F2A39C}
+  .flow{list-style:none;padding:0;margin:28px 0 0;counter-reset:f;display:grid;gap:0}
+  .flow li{counter-increment:f;display:grid;grid-template-columns:36px 1fr;gap:14px;padding:0 0 18px;position:relative}
+  .flow li:before{content:counter(f);width:32px;height:32px;border-radius:50%;background:var(--card);border:1.5px solid var(--ink);display:grid;place-items:center;font-weight:700;font-size:14px;position:relative;z-index:1}
+  .flow li:not(:last-child):after{content:"";position:absolute;left:15.5px;top:32px;bottom:0;width:1.5px;background:var(--line)}
+  .flow b{display:block;padding-top:4px}
+  .flow span{color:var(--muted);font-size:15px}
 
-  /* dev */
-  .dev{display:grid;grid-template-columns:1fr 1.1fr;gap:40px;align-items:center}
-  pre{background:var(--ink);color:#EEECE7;border-radius:16px;padding:22px;overflow:auto;font:13px/1.6 "JetBrains Mono",monospace;margin:0}
-  pre .k{color:#F1C64B}.c{color:#8E8A92}.s{color:#F2A39C}
-  .checks{list-style:none;padding:0;margin:20px 0 0}
-  .checks li{padding:6px 0 6px 26px;position:relative}
-  .checks li:before{content:"✓";position:absolute;left:0;color:var(--ok);font-weight:700}
+  /* ---------- trust ---------- */
+  .trust{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+  .badge{border:1px solid var(--line);border-radius:var(--r);padding:22px;background:var(--card);display:flex;flex-direction:column;gap:10px}
+  .badge p{font-size:14.5px;color:var(--muted)}
 
-  .cta{background:radial-gradient(80% 120% at 100% 0%,rgba(241,198,75,.28),transparent 60%),var(--ink);color:#F6F4EF;border-radius:24px;padding:48px;display:flex;align-items:center;gap:24px;flex-wrap:wrap}
-  .cta h2{margin:0;font-size:clamp(26px,3vw,36px);letter-spacing:-.03em;flex:1;min-width:260px}
-  .cta .btn-primary{background:var(--brand);color:#fff}
+  /* ---------- demo form ---------- */
+  .demo{display:grid;grid-template-columns:.9fr 1.1fr;border-radius:28px;overflow:hidden;background:var(--card);border:1px solid var(--line)}
+  .demo-l{background:var(--sun);padding:48px 44px;display:flex;flex-direction:column;gap:18px}
+  .demo-l h2{font-size:clamp(28px,3vw,38px)}
+  .demo-l p{color:var(--ink-2);font-size:16.5px}
+  .demo-l ul{list-style:none;padding:0;margin:8px 0 0;display:grid;gap:14px}
+  .demo-l li{display:flex;gap:12px;font-weight:500}
+  .demo-l li svg{flex:none;width:22px;height:22px;margin-top:1px}
+  .demo-l .contact{margin-top:auto;padding-top:20px;border-top:1.5px solid rgba(33,31,36,.15);font-size:15px}
+  .demo-r{padding:44px}
+  .fgrid{display:grid;grid-template-columns:1fr 1fr;gap:4px 16px}
+  .fgrid .full{grid-column:1/-1}
+  label{display:block;font-size:13.5px;font-weight:600;margin:12px 0 6px}
+  input,select,textarea{width:100%;padding:12px 14px;border:1.5px solid var(--line);border-radius:10px;font:15px inherit;background:var(--card);color:var(--ink)}
+  textarea{resize:vertical;min-height:92px}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--ink);box-shadow:0 0 0 4px var(--sun-soft)}
+  .form-foot{display:flex;align-items:center;gap:16px;margin-top:22px;flex-wrap:wrap}
+  .form-foot small{color:var(--muted);flex:1;min-width:200px}
+  .done-msg{display:none;padding:40px 0;text-align:left}
+  .done-msg h3{font-size:24px;margin:16px 0 8px}
+  .done-msg p{color:var(--muted)}
 
-  footer{border-top:1px solid var(--line);padding:40px 0;color:var(--muted);font-size:14px}
-  .foot{display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap}
-  .foot ul{list-style:none;padding:0;margin:0;display:flex;gap:20px;flex-wrap:wrap}
+  /* ---------- closing ---------- */
+  .closing{text-align:center;padding:96px 0 88px}
+  .closing h2{font-size:clamp(34px,5vw,60px);letter-spacing:-.04em;max-width:16ch;margin:0 auto 18px}
+  .closing p{color:var(--muted);font-size:17px;margin-bottom:28px}
+  .closing .ctas{justify-content:center}
 
-  @media (max-width:960px){
-    .hero,.dev{grid-template-columns:1fr}
-    .auth{justify-self:stretch;max-width:none}
-    .grid,.opts{grid-template-columns:1fr 1fr}
+  footer{background:var(--ink);color:var(--on-ink-muted);font-size:14.5px;padding:64px 0 32px}
+  .foot-grid{display:grid;grid-template-columns:1.4fr repeat(3,1fr);gap:40px}
+  footer .logo{color:var(--on-ink)}
+  footer h4{color:var(--on-ink);font-size:14.5px;margin:0 0 14px}
+  footer ul{list-style:none;padding:0;margin:0;display:grid;gap:10px}
+  footer a:hover{color:var(--on-ink)}
+  .foot-base{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;border-top:1px solid var(--ink-3);margin-top:48px;padding-top:24px;font-size:13.5px}
+  .foot-base ul{display:flex;gap:20px;flex-wrap:wrap}
+
+  /* ---------- responsive ---------- */
+  @media (max-width:1080px){
+    .ops{grid-template-columns:repeat(3,1fr)}
+    .op:nth-child(3){border-right:0}
+    .op:nth-child(-n+3){border-bottom:1px solid var(--line)}
+    .integr,.trust{grid-template-columns:1fr 1fr}
+  }
+  @media (max-width:900px){
+    .menu,.nav .right{display:none}
+    .menu-btn{display:grid}
+    .nav.open{flex-wrap:wrap;height:auto;padding-top:14px;padding-bottom:16px;row-gap:8px}
+    .nav.open .menu{display:flex;flex-direction:column;width:100%;order:3}
+    .nav.open .right{display:flex;width:100%;order:4;margin-left:0}
+    .nav.open .right .btn{flex:1}
+    .mega{position:static;width:auto;grid-template-columns:1fr;box-shadow:none;border:0;padding:0 0 8px}
+    .hero-top,.stage,.dev,.demo{grid-template-columns:1fr}
+    .hero-top{gap:24px}
+    .stage-copy{padding:32px 24px 8px}
+    .quad{grid-template-columns:1fr}
+    .slide{grid-template-columns:1fr}
+    .slide-art{min-height:180px}
     .dash-in{grid-template-columns:1fr}
     .side{display:none}
+    .foot-grid{grid-template-columns:1fr 1fr}
   }
   @media (max-width:640px){
-    .nav ul,.nav .right{display:none}
-    .menu-btn{display:block}
-    .nav.open ul,.nav.open .right{display:flex;flex-direction:column;position:absolute;top:68px;left:0;right:0;background:var(--card);padding:16px 20px;border-bottom:1px solid var(--line)}
-    .nav.open .right{top:auto;position:static;padding:0}
-    .grid,.opts,.kpis,.split{grid-template-columns:1fr}
-    .hero{padding-top:40px}
-    .cta{padding:32px 24px}
+    .wrap{padding:0 16px}
+    .sec{padding:68px 0}
+    .ops{grid-template-columns:1fr}
+    .op{border-right:0;border-bottom:1px solid var(--line)}
+    .op:last-child{border-bottom:0}
+    .integr,.trust,.kpis,.split,.fgrid{grid-template-columns:1fr}
+    .q{grid-template-columns:1fr;padding:26px}
+    .q-art{display:none}
+    .show{border-radius:22px;padding:6px}
+    .show-tabs button{padding:12px 14px;font-size:14px}
+    .stage-art{padding:24px 16px}
+    .demo-l,.demo-r{padding:32px 22px}
+    .track{grid-auto-columns:92%}
+    .foot-grid{grid-template-columns:1fr}
   }
 </style>
 </head>
 <body>
 
+<!-- Inline icon sprite -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-card" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M2.5 10h19M6.5 15h4"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1"/></symbol>
+    <symbol id="i-repeat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2.5l3 3-3 3"/><path d="M4 11v-1.5a4 4 0 0 1 4-4h12"/><path d="M7 21.5l-3-3 3-3"/><path d="M20 13v1.5a4 4 0 0 1-4 4H4"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 3L10 14"/><path d="M21 3l-7 18-4-7-7-4z"/></symbol>
+    <symbol id="i-split" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21v-7"/><path d="M12 14L5 6M12 14l7-8"/><path d="M3 9V4h5M21 9V4h-5"/></symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 6-7"/></symbol>
+    <symbol id="i-bank" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10l9-6 9 6"/><path d="M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 21h18"/></symbol>
+    <symbol id="i-undo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></symbol>
+    <symbol id="i-cart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2.5 3h3l2.6 12.2a1.5 1.5 0 0 0 1.5 1.2h8.6a1.5 1.5 0 0 0 1.5-1.1L21.5 8H6.4"/></symbol>
+    <symbol id="i-code" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5M13.5 4l-3 16"/></symbol>
+    <symbol id="i-doc" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2.5H6.5a2 2 0 0 0-2 2v15a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V8z"/><path d="M14 2.5V8h5.5M8.5 13h7M8.5 17h5"/></symbol>
+    <symbol id="i-plug" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2.5v5M15 2.5v5M6 7.5h12v3a6 6 0 0 1-12 0z"/><path d="M12 16.5v5"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21.5s8-3.5 8-10V5l-8-2.5L4 5v6.5c0 6.5 8 10 8 10z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></symbol>
+    <symbol id="i-key" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="4.5"/><path d="M11.2 11.8L20 3M16.5 6.5l3 3M14 9l2 2"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 6.5 2.5 8 2.5 8h-17S6 15.5 6 9z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10.5" width="16" height="11" rx="2.5"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M7.5 12.5l3 3 6-6.5"/></symbol>
+    <symbol id="i-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></symbol>
+    <symbol id="i-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></symbol>
+    <symbol id="i-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+  </defs>
+</svg>
+
+<div class="notice">Every new account starts in test mode. Try every feature before you go live. <a href="app.html#/signup">Create a test account</a></div>
+
 <header>
-  <div class="wrap nav" id="nav">
-    <a class="logo" href="#"><i></i>Bizpoel Pay</a>
-    <ul>
-      <li><a href="#products">Products</a></li>
-      <li><a href="#dashboard">Dashboard</a></li>
-      <li><a href="#integrate">Integrate</a></li>
+  <nav class="wrap nav" id="nav" aria-label="Main">
+    <a class="logo" href="#top"><i></i>Bizpole Pay</a>
+    <ul class="menu">
+      <li>
+        <button type="button" id="prod-btn" aria-expanded="false" aria-controls="mega">Products <svg width="14" height="14"><use href="#i-chev"/></svg></button>
+        <div class="mega" id="mega">
+          <a href="#collect"><span class="ic coral"><svg><use href="#i-card"/></svg></span><span><b>Online checkout</b><span>A hosted payment page for your website or app</span></span></a>
+          <a href="#collect"><span class="ic"><svg><use href="#i-link"/></svg></span><span><b>Payment links</b><span>Get paid over WhatsApp, SMS or email</span></span></a>
+          <a href="#collect"><span class="ic"><svg><use href="#i-repeat"/></svg></span><span><b>Subscriptions</b><span>Recurring billing with UPI Autopay and cards</span></span></a>
+          <a href="#collect"><span class="ic"><svg><use href="#i-split"/></svg></span><span><b>Split settlements</b><span>Share each payment with partners automatically</span></span></a>
+          <a href="#operations"><span class="ic"><svg><use href="#i-send"/></svg></span><span><b>Payouts</b><span>Pay vendors over IMPS, NEFT or UPI</span></span></a>
+          <a href="#dashboard"><span class="ic dark"><svg><use href="#i-chart"/></svg></span><span><b>Dashboard</b><span>Transactions, settlements and refunds in one place</span></span></a>
+        </div>
+      </li>
+      <li><a href="#industries">Solutions</a></li>
       <li><a href="#developers">Developers</a></li>
-      <li><a href="#pricing">Pricing</a></li>
+      <li><a href="#demo">Contact sales</a></li>
     </ul>
     <div class="right">
-      <a class="btn btn-ghost" href="app.html#/login">Log in</a>
+      <a class="signin" href="app.html#/login">Sign in</a>
       <a class="btn btn-primary" href="app.html#/signup">Sign up free</a>
     </div>
-    <button class="menu-btn" aria-label="Menu" onclick="document.getElementById('nav').classList.toggle('open')">☰</button>
-  </div>
+    <button class="menu-btn" type="button" aria-label="Open menu" aria-expanded="false" id="menu-btn"><svg width="22" height="22"><use href="#i-menu"/></svg></button>
+  </nav>
 </header>
 
-<main>
-  <div class="wrap hero" id="signin">
-    <div>
-      <span class="tag">Test mode in 60 seconds</span>
-      <h1>Collect payments.<br><em>Run your business.</em></h1>
-      <p class="lead">Accept UPI, cards, net banking, wallets and EMI. Track every rupee from checkout to settlement in one dashboard built for Indian businesses.</p>
-      <div class="ctas">
-        <a class="btn btn-primary" href="#signin" data-tab="signup">Start in test mode →</a>
-        <a class="btn btn-ghost" href="app.html#/login">Open the dashboard demo</a>
-      </div>
-      <div class="stats">
-        <div><b>8</b><span>payment modes</span></div>
-        <div><b>T+1</b><span>settlements</span></div>
-        <div><b>5 steps</b><span>to go live</span></div>
-      </div>
-    </div>
+<main id="top">
 
-    <div class="auth" aria-live="polite">
-      <div class="tabs" role="tablist">
-        <button role="tab" aria-selected="true" data-pane="login">Log in</button>
-        <button role="tab" aria-selected="false" data-pane="signup">Sign up</button>
-      </div>
-
-      <form id="pane-login" onsubmit="event.preventDefault();demo('Signed in (demo)')">
-        <h2>Welcome back</h2>
-        <p class="sub">Log in to your Bizpole Pay dashboard</p>
-        <label for="em">Work email</label>
-        <input id="em" type="email" placeholder="you@business.in" autocomplete="email" required>
-        <div id="pw-wrap">
-          <label for="pw">Password</label>
-          <input id="pw" type="password" placeholder="••••••••" autocomplete="current-password">
-        </div>
-        <div class="row">
-          <a href="#" id="otp-toggle">Use OTP instead</a>
-          <a href="#" onclick="demo('Reset link sent (demo)');return false">Forgot password?</a>
-        </div>
-        <button class="btn btn-primary" type="submit">Log in</button>
-        <div class="or">or</div>
-        <button class="btn btn-ghost" type="button" onclick="demo('Redirecting to your company IdP (demo)')">Continue with company SSO</button>
-      </form>
-
-      <form id="pane-signup" class="hidden" onsubmit="event.preventDefault();demo('Test account created (demo)')">
-        <h2>Create your account</h2>
-        <p class="sub">Start in test mode. Go live after 5 quick onboarding steps.</p>
-        <label for="nm">Full name</label>
-        <input id="nm" placeholder="Your name" autocomplete="name" required>
-        <label for="sem">Work email</label>
-        <input id="sem" type="email" placeholder="you@business.in" autocomplete="email" required>
-        <label for="mob">Mobile</label>
-        <input id="mob" type="tel" placeholder="+91 98xxxxxx10" autocomplete="tel" required>
-        <div style="height:16px"></div>
-        <button class="btn btn-primary" type="submit">Get started</button>
-      </form>
-      <p class="fine">Payments processed by PayU · PCI-DSS compliant processing</p>
-    </div>
-  </div>
-
-  <section id="products" style="padding-top:24px">
+  <!-- HERO -->
+  <section class="hero">
     <div class="wrap">
-      <div class="methods">
-        <span>UPI</span><span>Credit card</span><span>Debit card</span><span>Net banking</span><span>Wallets</span><span>EMI</span><span>Pay later</span><span>Cash card</span>
+      <div class="hero-top">
+        <h1>One place to collect and pay out every rupee.</h1>
+        <div>
+          <p class="lead">Take payments on your website, over a link, or on a schedule. Pay vendors from the same balance. Track every settlement to your bank in one dashboard.</p>
+          <div class="ctas">
+            <a class="btn btn-primary" href="app.html#/signup">Sign up for free</a>
+            <a class="btn btn-ghost" href="#demo">Book a demo</a>
+          </div>
+          <p class="hero-note">No setup fee. Payments processed by PayU, an RBI-authorised payment aggregator.</p>
+        </div>
+      </div>
+
+      <div class="show">
+        <div class="show-tabs" role="tablist" aria-label="Products">
+          <button role="tab" id="t-checkout" aria-controls="p-checkout" aria-selected="true"><svg><use href="#i-card"/></svg>Online checkout</button>
+          <button role="tab" id="t-links" aria-controls="p-links" aria-selected="false" tabindex="-1"><svg><use href="#i-link"/></svg>Payment links</button>
+          <button role="tab" id="t-subs" aria-controls="p-subs" aria-selected="false" tabindex="-1"><svg><use href="#i-repeat"/></svg>Subscriptions</button>
+          <button role="tab" id="t-payouts" aria-controls="p-payouts" aria-selected="false" tabindex="-1"><svg><use href="#i-send"/></svg>Vendor payouts</button>
+        </div>
+
+        <div class="stage" role="tabpanel" id="p-checkout" aria-labelledby="t-checkout">
+          <div class="stage-copy">
+            <h3>A checkout your customers already trust</h3>
+            <p>Send customers to a hosted payment page with your logo and colours. You don't handle any card data.</p>
+            <ul><li>UPI, cards, net banking, wallets, EMI and pay later</li><li>Saved payment modes for repeat buyers</li><li>Live in 1–2 days with a single API call</li></ul>
+            <a class="link" href="app.html#/checkout">See checkout settings</a>
+          </div>
+          <div class="stage-art">
+            <div class="mock" aria-hidden="true">
+              <div class="row"><b>Kaveri Organics</b><small>Order #INV-1042</small></div>
+              <div class="amt">₹1,499.00</div>
+              <div class="opt on"><i>UPI</i>UPI<em>Any UPI app</em></div>
+              <div class="opt"><i>▭</i>Credit or debit card<em>Visa, RuPay…</em></div>
+              <div class="opt"><i>⌂</i>Net banking<em>50+ banks</em></div>
+              <div class="opt"><i>₹</i>EMI<em>From ₹500/mo</em></div>
+              <span class="btn btn-primary pay">Pay ₹1,499.00</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="stage" role="tabpanel" id="p-links" aria-labelledby="t-links" hidden>
+          <div class="stage-copy">
+            <h3>Get paid without a website</h3>
+            <p>Create a link in seconds and share it anywhere your customers already talk to you.</p>
+            <ul><li>Fixed or customer-entered amounts</li><li>Expiry dates and automatic reminders</li><li>Accept part payments against one link</li></ul>
+            <a class="link" href="app.html#/links">Create a payment link</a>
+          </div>
+          <div class="stage-art">
+            <div class="mock" aria-hidden="true">
+              <div class="row"><b>Catering advance — Rao wedding</b><span class="pill wait">Part paid</span></div>
+              <div class="amt">₹60,000.00</div>
+              <div class="url">pay.bizpole.in/l/8KX2QF <b>Copy</b></div>
+              <div class="chips"><span class="chip">WhatsApp</span><span class="chip">SMS</span><span class="chip">Email</span><span class="chip">QR code</span></div>
+              <hr>
+              <div class="row"><small>Collected</small><small><b style="color:var(--ink)">₹40,000</b> of ₹60,000</small></div>
+              <div class="meter"><i style="width:66%"></i></div>
+              <div class="row"><small>Expires 30 Nov 2026</small><small>2 payments</small></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="stage" role="tabpanel" id="p-subs" aria-labelledby="t-subs" hidden>
+          <div class="stage-copy">
+            <h3>Recurring billing that runs itself</h3>
+            <p>Set up a plan once. Customers approve a mandate and you're paid on schedule.</p>
+            <ul><li>UPI Autopay and card standing instructions</li><li>Automatic retries when a debit fails</li><li>Pause, resume or cancel from the dashboard</li></ul>
+            <a class="link" href="app.html#/subscriptions">See subscriptions</a>
+          </div>
+          <div class="stage-art">
+            <div class="mock" aria-hidden="true">
+              <div class="row"><b>Grade 6 tuition — monthly</b><span class="pill ok">Mandate active</span></div>
+              <div class="amt">₹2,500<small style="font-size:15px;font-weight:500"> / month</small></div>
+              <div class="list">
+                <div class="row"><span>5 Dec 2026</span><span class="pill">Scheduled</span></div>
+                <div class="row"><span>5 Nov 2026</span><span class="pill ok">Paid</span></div>
+                <div class="row"><span>5 Oct 2026</span><span class="pill ok">Paid · retry 1</span></div>
+                <div class="row"><span>5 Sep 2026</span><span class="pill ok">Paid</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="stage" role="tabpanel" id="p-payouts" aria-labelledby="t-payouts" hidden>
+          <div class="stage-copy">
+            <h3>Pay vendors from the same dashboard</h3>
+            <p>Send money to suppliers and partners in bulk or one at a time, and see where each payout stands.</p>
+            <ul><li>IMPS, NEFT and UPI transfers</li><li>Upload a CSV to pay many vendors at once</li><li>Bank reference number on every payout</li></ul>
+            <a class="link" href="app.html#/payouts">See payouts</a>
+          </div>
+          <div class="stage-art">
+            <div class="mock" aria-hidden="true">
+              <div class="row"><b>Payout batch — 2 Nov</b><small>3 vendors</small></div>
+              <div class="amt">₹1,18,400.00</div>
+              <div class="list">
+                <div class="row"><span><b>Sree Packaging</b><br><small>IMPS · HDFC ••4410</small></span><span class="pill ok">Paid</span></div>
+                <div class="row"><span><b>Nilgiri Farms</b><br><small>NEFT · SBI ••0912</small></span><span class="pill wait">Processing</span></div>
+                <div class="row"><span><b>Arun Logistics</b><br><small>UPI · arun@okaxis</small></span><span class="pill ok">Paid</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="methods" aria-label="Payment methods supported">
+        <span class="lbl">Accept</span><span>UPI</span><span>Credit cards</span><span>Debit cards</span><span>Net banking</span><span>Wallets</span><span>EMI</span><span>Pay later</span>
       </div>
     </div>
   </section>
 
-  <section>
+  <!-- OPERATIONS -->
+  <section class="sec" id="operations">
     <div class="wrap">
       <div class="sec-head">
-        <span class="tag">Products</span>
-        <h2>Everything to get paid and keep track</h2>
-        <p>Start with checkout and payment links. Add subscriptions, split settlements and payouts as you grow.</p>
+        <h2>Everything you need to run your payment operations</h2>
+        <p>From the moment a customer pays to the moment money lands in your bank, and back out to your vendors.</p>
       </div>
-      <div class="grid">
-        <div class="card"><div class="ic">⚡</div><h3>Hosted checkout</h3><p>A conversion-tuned payment page. Add your logo and colours. Go live without building a payment UI.</p></div>
-        <div class="card"><div class="ic">🔗</div><h3>Payment links</h3><p>Share a link on WhatsApp, SMS or email. Fixed or open amount, expiry, and partial payments.</p></div>
-        <div class="card"><div class="ic">↺</div><h3>Refunds</h3><p>Full or partial refunds from the dashboard or API, with bank reference numbers once processed.</p></div>
-        <div class="card"><div class="ic">₹</div><h3>Settlements</h3><p>See gross, fees, tax and net for every payout to your bank, with the UTR and each transaction listed.</p></div>
-        <div class="card"><div class="ic">⟳</div><h3>Subscriptions</h3><p>Recurring billing on UPI Autopay and cards. Plans, mandates and retries in one place.</p></div>
-        <div class="card"><div class="ic">⑂</div><h3>Split &amp; payouts</h3><p>Split a payment between partners, or send money to vendors over IMPS, NEFT or UPI.</p></div>
+      <div class="ops">
+        <div class="op"><span class="ic coral"><svg><use href="#i-card"/></svg></span><span class="verb">Collect</span><h3>Take payments</h3><p>Checkout, links and subscriptions, with 8 payment modes.</p><a class="link" href="#collect">Ways to collect</a></div>
+        <div class="op"><span class="ic"><svg><use href="#i-chart"/></svg></span><span class="verb">Track</span><h3>See every transaction</h3><p>Search by order, customer or bank reference. Spot failures early.</p><a class="link" href="#dashboard">View dashboard</a></div>
+        <div class="op"><span class="ic"><svg><use href="#i-bank"/></svg></span><span class="verb">Settle</span><h3>Reconcile settlements</h3><p>Gross, fees, tax and net for every bank payout, with the UTR.</p><a class="link" href="app.html#/settlements">See settlements</a></div>
+        <div class="op"><span class="ic"><svg><use href="#i-undo"/></svg></span><span class="verb">Refund</span><h3>Refund in one click</h3><p>Full or partial refunds from the dashboard or the API.</p><a class="link" href="app.html#/transactions">See refunds</a></div>
+        <div class="op"><span class="ic dark"><svg><use href="#i-send"/></svg></span><span class="verb">Pay out</span><h3>Pay your vendors</h3><p>Single or bulk payouts over IMPS, NEFT or UPI.</p><a class="link" href="app.html#/payouts">See payouts</a></div>
       </div>
     </div>
   </section>
 
-  <section id="dashboard">
+  <!-- COLLECT WITHOUT A WEBSITE -->
+  <section class="sec dark-band" id="collect">
     <div class="wrap">
       <div class="sec-head">
-        <span class="tag">Dashboard</span>
-        <h2>One place for every rupee</h2>
-        <p>Switch between test and live data. Track success rates, settlements and onboarding from a single home screen.</p>
+        <h2>Collect payments, even without a website</h2>
+        <p>Pick the way that fits how you sell today. Add the others as you grow.</p>
       </div>
-
-      <div class="dash">
-        <div class="dash-in">
-          <nav class="side" aria-label="Dashboard preview navigation">
-            <h6>TRACK</h6>
-            <a class="on" href="#dashboard">Business summary</a><a href="#dashboard">Transactions</a><a href="#dashboard">Settlements</a><a href="#dashboard">Chargebacks</a><a href="#dashboard">Reports</a>
-            <h6>PRODUCTS</h6>
-            <a href="#dashboard">Checkout</a><a href="#dashboard">Payment links</a><a href="#dashboard">Subscriptions</a><a href="#dashboard">Split &amp; payouts</a>
-            <h6>INSIGHTS</h6>
-            <a href="#dashboard">Analytics</a><a href="#dashboard">Customers</a>
-            <h6>ACCOUNT</h6>
-            <a href="#dashboard">Settings</a><a href="#dashboard">Developers</a>
-          </nav>
-          <div class="main">
-            <div class="topbar">
-              <strong>Business summary</strong>
-              <span class="mid" id="mid">MID · TEST-0000</span>
-              <div class="mode"><span id="mode-label">Test mode</span><button class="switch" id="mode" aria-label="Toggle test or live mode"></button></div>
-            </div>
-            <div class="banner" id="banner">You're viewing test data. Complete onboarding to accept real payments.</div>
-            <div class="kpis">
-              <div class="kpi"><small>Total collected</small><b id="k1">₹1,24,560</b><span id="k1s">312 transactions</span></div>
-              <div class="kpi"><small>Settled</small><b id="k2">₹98,210</b><span id="k2s">6 settlements</span></div>
-              <div class="kpi"><small>Refunds</small><b id="k3">₹3,400</b><span id="k3s">4 refunds</span></div>
-            </div>
-            <div class="split">
-              <div class="panel">
-                <h5>Successful transactions · last 7 days</h5>
-                <div class="bars" id="bars"></div>
-                <div class="health"><span class="dot"></span>All payment modes operational · <a href="#dashboard" style="color:var(--brand);font-weight:600">View downtime</a></div>
-              </div>
-              <div class="panel">
-                <h5>Onboarding · 40% complete</h5>
-                <div class="prog"><i></i></div>
-                <ul class="steps">
-                  <li class="done">PAN details</li><li class="done">Business details</li><li>Bank account</li><li>Website details</li><li>KYC documents</li>
-                </ul>
-              </div>
-            </div>
+      <div class="quad">
+        <div class="q">
+          <div><span class="ic"><svg><use href="#i-link"/></svg></span><h3 style="margin-top:16px">Payment links</h3><p>Share a link on WhatsApp or email. Customers pay with UPI or card in two taps.</p><a class="link" href="app.html#/links">Create a link</a></div>
+          <div class="q-art" aria-hidden="true">
+            <div style="inset:10px 20px 40px 0;background:var(--sun)"></div>
+            <div style="inset:50px 0 0 30px;background:var(--brand);border-radius:50%"></div>
+          </div>
+        </div>
+        <div class="q">
+          <div><span class="ic"><svg><use href="#i-card"/></svg></span><h3 style="margin-top:16px">Hosted checkout</h3><p>A ready payment page with your branding. Redirect to it with one API call.</p><a class="link" href="app.html#/checkout">Customise checkout</a></div>
+          <div class="q-art" aria-hidden="true">
+            <div style="inset:0 30px 0 10px;background:var(--on-ink);border-radius:16px"></div>
+            <div style="left:22px;right:42px;top:18px;height:14px;background:var(--soft);border-radius:4px"></div>
+            <div style="left:22px;right:42px;bottom:16px;height:26px;background:var(--brand);border-radius:999px"></div>
+          </div>
+        </div>
+        <div class="q">
+          <div><span class="ic"><svg><use href="#i-repeat"/></svg></span><h3 style="margin-top:16px">Recurring payments</h3><p>Monthly fees, memberships and retainers collected on time with UPI Autopay.</p><a class="link" href="app.html#/subscriptions">Set up a plan</a></div>
+          <div class="q-art" aria-hidden="true">
+            <div style="inset:8px 18px 8px 18px;border:16px solid var(--sun);border-radius:50%;border-right-color:transparent"></div>
+            <div style="width:30px;height:30px;right:14px;top:16px;background:var(--brand);border-radius:50%"></div>
+          </div>
+        </div>
+        <div class="q">
+          <div><span class="ic"><svg><use href="#i-split"/></svg></span><h3 style="margin-top:16px">Split payments</h3><p>Share each payment with partners or sellers. Everyone is settled separately.</p><a class="link" href="app.html#/split">Configure splits</a></div>
+          <div class="q-art" aria-hidden="true">
+            <div style="left:0;top:20px;width:64px;height:90px;background:var(--brand);border-radius:14px 0 0 14px"></div>
+            <div style="left:70px;top:20px;width:40px;height:90px;background:var(--sun)"></div>
+            <div style="left:116px;top:20px;width:30px;height:90px;background:var(--on-ink);border-radius:0 14px 14px 0"></div>
           </div>
         </div>
       </div>
     </div>
   </section>
 
-  <section id="integrate">
+  <!-- INTEGRATIONS -->
+  <section class="sec" id="integrate">
     <div class="wrap">
       <div class="sec-head">
-        <span class="tag">Integrate</span>
-        <h2>Pick how you want to go live</h2>
+        <h2>Payments, right inside how you already work</h2>
+        <p>Plug into your store, connect your invoicing, or build on our API.</p>
       </div>
-      <div class="opts">
-        <div class="opt"><span class="time">1–2 DAYS</span><h3>Hosted checkout</h3><p>Redirect to our prebuilt payment page. The least code and the fastest launch.</p></div>
-        <div class="opt"><span class="time">2–3 DAYS</span><h3>Custom checkout</h3><p>Build your own payment UI on our server APIs. You control the whole experience.</p></div>
-        <div class="opt"><span class="time">MINUTES</span><h3>Plugins</h3><p>Shopify, WooCommerce and more. Install, paste your keys, and start accepting payments.</p></div>
+      <div class="integr">
+        <div class="tile"><span class="ic coral"><svg><use href="#i-cart"/></svg></span><h3>Online stores</h3><p>Install the Shopify or WooCommerce plugin and paste your keys.</p><span class="time">Minutes</span></div>
+        <div class="tile"><span class="ic"><svg><use href="#i-card"/></svg></span><h3>Hosted checkout</h3><p>Redirect to our payment page. The least code and the fastest launch.</p><span class="time">1–2 days</span></div>
+        <div class="tile"><span class="ic"><svg><use href="#i-code"/></svg></span><h3>Custom checkout</h3><p>Build your own payment UI on our server APIs and own the experience.</p><span class="time">2–3 days</span></div>
+        <div class="tile"><span class="ic dark"><svg><use href="#i-doc"/></svg></span><h3>Invoices &amp; reports</h3><p>Export transactions and settlements to CSV for your accountant.</p><span class="time">Built in</span></div>
       </div>
     </div>
   </section>
 
-  <section id="developers">
+  <!-- INDUSTRIES -->
+  <section class="sec" id="industries" style="padding-top:0">
+    <div class="wrap">
+      <div class="ind-head">
+        <div class="sec-head"><h2>Built for the way you sell</h2><p>See how businesses like yours use Bizpole Pay.</p></div>
+        <div class="arrows"><button type="button" id="prev" aria-label="Previous industry"><svg width="20" height="20"><use href="#i-left"/></svg></button><button type="button" id="next" aria-label="Next industry"><svg width="20" height="20"><use href="#i-right"/></svg></button></div>
+      </div>
+      <div class="track" id="track" tabindex="0" aria-label="Industries">
+        <article class="slide">
+          <div class="slide-art" style="background:var(--sun)" aria-hidden="true"><div class="big-glyph" style="color:var(--ink)">A+</div></div>
+          <div class="slide-copy"><h3 style="font-size:24px">Schools and coaching centres</h3><p>Collect term fees without queues at the counter.</p><ul><li>Fee links sent to each parent</li><li>Monthly tuition on UPI Autopay</li><li>Receipts sent automatically</li></ul><a class="link" href="#demo">Talk to us about fees</a></div>
+        </article>
+        <article class="slide">
+          <div class="slide-art" style="background:var(--brand)" aria-hidden="true"><div class="big-glyph" style="color:var(--on-ink)">₹</div></div>
+          <div class="slide-copy"><h3 style="font-size:24px">D2C and online retail</h3><p>A fast checkout for every device, and refunds without the back-and-forth.</p><ul><li>Store plugins for Shopify and WooCommerce</li><li>EMI and pay later for bigger baskets</li><li>Partial refunds on returns</li></ul><a class="link" href="#demo">Talk to us about retail</a></div>
+        </article>
+        <article class="slide">
+          <div class="slide-art" style="background:var(--ink)" aria-hidden="true"><div class="big-glyph" style="color:var(--sun)">@</div></div>
+          <div class="slide-copy"><h3 style="font-size:24px">Freelancers and agencies</h3><p>Send a link with your invoice and get paid in days, not weeks.</p><ul><li>Payment links with due dates</li><li>Part payments for milestones</li><li>Retainers billed monthly</li></ul><a class="link" href="#demo">Talk to us about invoicing</a></div>
+        </article>
+        <article class="slide">
+          <div class="slide-art" style="background:var(--ok-soft)" aria-hidden="true"><div class="big-glyph" style="color:var(--ok)">♥</div></div>
+          <div class="slide-copy"><h3 style="font-size:24px">Non-profits and trusts</h3><p>Let donors give once or every month, with the amount they choose.</p><ul><li>Open-amount donation links</li><li>Monthly giving on UPI Autopay</li><li>Donor-wise reports for audits</li></ul><a class="link" href="#demo">Talk to us about donations</a></div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- DASHBOARD -->
+  <section class="sec" id="dashboard" style="background:var(--soft)">
+    <div class="wrap">
+      <div class="sec-head">
+        <h2>Every rupee, from checkout to your bank</h2>
+        <p>Flip between test and live data. Watch success rates, settlements and onboarding from one home screen.</p>
+      </div>
+      <div class="dash">
+        <div class="dash-in">
+          <nav class="side" aria-label="Dashboard preview navigation">
+            <h6>Track</h6>
+            <a class="on" href="#dashboard">Business summary</a><a href="#dashboard">Transactions</a><a href="#dashboard">Settlements</a><a href="#dashboard">Chargebacks</a><a href="#dashboard">Reports</a>
+            <h6>Products</h6>
+            <a href="#dashboard">Checkout</a><a href="#dashboard">Payment links</a><a href="#dashboard">Subscriptions</a><a href="#dashboard">Split &amp; payouts</a>
+            <h6>Account</h6>
+            <a href="#dashboard">Settings</a><a href="#dashboard">Developers</a>
+          </nav>
+          <div class="main">
+            <div class="topbar">
+              <strong>Business summary</strong>
+              <span class="mid" id="mid">MID TEST-0000</span>
+              <div class="mode"><span id="mode-label">Test mode</span><button class="switch" id="mode" type="button" role="switch" aria-checked="false" aria-label="Live mode"></button></div>
+            </div>
+            <div class="banner" id="banner"></div>
+            <div class="kpis">
+              <div class="kpi"><small>Total collected</small><b id="k1"></b><span id="k1s"></span></div>
+              <div class="kpi"><small>Settled</small><b id="k2"></b><span id="k2s"></span></div>
+              <div class="kpi"><small>Refunds</small><b id="k3"></b><span id="k3s"></span></div>
+            </div>
+            <div class="split">
+              <div class="panel">
+                <h5>Successful transactions, last 7 days</h5>
+                <div class="bars" id="bars"></div>
+                <div class="health"><span class="dot"></span>All payment modes operational</div>
+              </div>
+              <div class="panel">
+                <h5>Onboarding, 40% complete</h5>
+                <div class="prog"><i></i></div>
+                <ul class="steps"><li class="done">PAN details</li><li class="done">Business details</li><li>Bank account</li><li>Website details</li><li>KYC documents</li></ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:28px;text-align:center"><a class="btn btn-dark" href="app.html#/login">Open the dashboard demo</a></div>
+    </div>
+  </section>
+
+  <!-- DEVELOPERS -->
+  <section class="sec" id="developers">
     <div class="wrap dev">
       <div>
-        <span class="tag">Developers</span>
-        <div class="sec-head" style="margin-bottom:0"><h2>Create an order, redirect, done</h2>
-        <p>One REST call creates an order. We handle hashing, payment-provider callbacks, verification and webhooks.</p></div>
-        <ul class="checks">
-          <li>Separate test and live keys</li>
-          <li>Signed webhooks with retries and a delivery log</li>
-          <li>Status confirmed with the payment provider before a payment is marked paid</li>
-          <li>Idempotent refunds and payouts</li>
-        </ul>
+        <div class="sec-head" style="margin-bottom:0">
+          <h2>Build your own payment flow</h2>
+          <p>One REST call creates an order. We handle hashing, provider callbacks, verification and webhooks.</p>
+        </div>
+        <ol class="flow">
+          <li><div><b>Create an order</b><span>Your server sends the amount and customer details.</span></div></li>
+          <li><div><b>Redirect to checkout</b><span>The customer pays on the hosted page.</span></div></li>
+          <li><div><b>We verify the payment</b><span>Status is confirmed with the provider before it's marked paid.</span></div></li>
+          <li><div><b>Get a signed webhook</b><span>Update your order. Failed deliveries are retried and logged.</span></div></li>
+        </ol>
+        <a class="link" href="app.html#/developer">Get your test keys</a>
       </div>
-<pre><span class="c">// server-side · Node</span>
+<pre aria-label="Example: create an order in Node.js"><span class="c">// server-side, Node.js</span>
 <span class="k">const</span> order = <span class="k">await</span> fetch(<span class="s">"https://api.bizpolepay.example/v1/orders"</span>, {
   method: <span class="s">"POST"</span>,
   headers: { Authorization: <span class="s">`Bearer ${BIZPOLEPAY_TEST_KEY}`</span> },
   body: JSON.stringify({
-    amount: <span class="s">49900</span>,          <span class="c">// paise</span>
+    amount: <span class="s">49900</span>,          <span class="c">// in paise</span>
     receipt: <span class="s">"INV-1042"</span>,
     customer: { name: <span class="s">"Asha"</span>, email: <span class="s">"asha@example.in"</span> },
     return_url: <span class="s">"https://shop.example.in/thanks"</span>
@@ -358,70 +665,169 @@
 
 res.redirect(order.checkout_url);
 
-<span class="c">// webhook → payment.success { order_id, txn_id, amount, mode }</span></pre>
+<span class="c">// webhook: payment.success</span>
+<span class="c">// { order_id, txn_id, amount, mode, settled_at }</span></pre>
     </div>
   </section>
 
-  <section id="pricing" style="padding-top:0">
+  <!-- TRUST -->
+  <section class="sec" style="padding-top:0">
     <div class="wrap">
-      <div class="cta">
-        <h2>Try every feature in test mode. Pay only when you go live.</h2>
-        <a class="btn btn-primary" href="#signin" data-tab="signup">Create test account</a>
+      <div class="sec-head">
+        <h2>Your money and your customers' data, kept safe</h2>
       </div>
+      <div class="trust">
+        <div class="badge"><span class="ic"><svg><use href="#i-bank"/></svg></span><h3>RBI-authorised partner</h3><p>Payments are processed by PayU, an RBI-authorised payment aggregator.</p></div>
+        <div class="badge"><span class="ic"><svg><use href="#i-lock"/></svg></span><h3>No card data with us</h3><p>Cards are entered on PayU's PCI DSS compliant hosted page, never on our servers.</p></div>
+        <div class="badge"><span class="ic"><svg><use href="#i-shield"/></svg></span><h3>Verified before paid</h3><p>Every payment is re-checked with the provider before your order is marked paid.</p></div>
+        <div class="badge"><span class="ic"><svg><use href="#i-key"/></svg></span><h3>Separate test and live keys</h3><p>Build safely in test mode. Live keys unlock only after your KYC is approved.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- DEMO -->
+  <section class="sec" id="demo" style="padding-top:0">
+    <div class="wrap">
+      <div class="demo">
+        <div class="demo-l">
+          <h2>Talk to our payments team</h2>
+          <p>Book a 30-minute call. We'll set up a test account with you and walk through it live.</p>
+          <ul>
+            <li><svg><use href="#i-check"/></svg>A walkthrough built around how you sell</li>
+            <li><svg><use href="#i-check"/></svg>The right integration for your stack</li>
+            <li><svg><use href="#i-check"/></svg>A clear list of KYC documents to go live</li>
+          </ul>
+          <div class="contact">Prefer to start on your own? <a href="app.html#/signup" style="font-weight:700;text-decoration:underline;text-underline-offset:3px">Sign up free</a> and explore test mode.</div>
+        </div>
+        <div class="demo-r">
+          <form id="demo-form" novalidate>
+            <div class="fgrid">
+              <div><label for="f-name">Full name</label><input id="f-name" name="name" autocomplete="name" required></div>
+              <div><label for="f-co">Business name</label><input id="f-co" name="company" autocomplete="organization" required></div>
+              <div><label for="f-em">Work email</label><input id="f-em" name="email" type="email" autocomplete="email" placeholder="you@business.in" required></div>
+              <div><label for="f-ph">Mobile</label><input id="f-ph" name="phone" type="tel" autocomplete="tel" placeholder="+91" required></div>
+              <div><label for="f-ind">Industry</label>
+                <select id="f-ind" name="industry"><option>Education</option><option>D2C and retail</option><option>Freelance or agency</option><option>Non-profit</option><option>Services</option><option>Other</option></select></div>
+              <div><label for="f-vol">Monthly payment volume</label>
+                <select id="f-vol" name="volume"><option>Just starting</option><option>Under ₹5 lakh</option><option>₹5–50 lakh</option><option>Over ₹50 lakh</option></select></div>
+              <div class="full"><label for="f-msg">What do you want to collect payments for?</label><textarea id="f-msg" name="message" placeholder="For example: monthly fees for 400 students"></textarea></div>
+            </div>
+            <div class="form-foot">
+              <button class="btn btn-primary" type="submit">Book a demo</button>
+              <small id="f-err" role="alert">We'll reply within one working day.</small>
+            </div>
+          </form>
+          <div class="done-msg" id="done" tabindex="-1">
+            <span class="ic" style="background:var(--ok-soft);color:var(--ok)"><svg><use href="#i-check"/></svg></span>
+            <h3>Demo request received</h3>
+            <p>Thanks, <span id="done-name">there</span>. Our team will email you within one working day to pick a time.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CLOSING CTA -->
+  <section class="closing" style="background:var(--card);border-top:1px solid var(--line)">
+    <div class="wrap">
+      <h2>Start collecting payments today</h2>
+      <p>Explore every feature in test mode. Go live after five onboarding steps.</p>
+      <div class="ctas"><a class="btn btn-primary" href="app.html#/signup">Sign up for free</a><a class="btn btn-ghost" href="app.html#/login">Sign in</a></div>
     </div>
   </section>
 </main>
 
 <footer>
-  <div class="wrap foot">
-    <div><a class="logo" href="#"><i></i>Bizpole Pay</a><p style="margin:10px 0 0">Payments processed by PayU, an RBI-authorised payment aggregator.</p></div>
-    <ul><li><a href="#">Terms</a></li><li><a href="#">Privacy</a></li><li><a href="#">Refund policy</a></li><li><a href="#">Contact</a></li><li><a href="#developers">Docs</a></li></ul>
+  <div class="wrap">
+    <div class="foot-grid">
+      <div>
+        <a class="logo" href="#top"><i></i>Bizpole Pay</a>
+        <p style="margin-top:14px;max-width:34ch">Payments for Indian businesses. Payments processed by PayU, an RBI-authorised payment aggregator.</p>
+      </div>
+      <div><h4>Products</h4><ul><li><a href="#collect">Online checkout</a></li><li><a href="#collect">Payment links</a></li><li><a href="#collect">Subscriptions</a></li><li><a href="#collect">Split settlements</a></li><li><a href="#operations">Payouts</a></li></ul></div>
+      <div><h4>Solutions</h4><ul><li><a href="#industries">Education</a></li><li><a href="#industries">D2C and retail</a></li><li><a href="#industries">Freelancers</a></li><li><a href="#industries">Non-profits</a></li></ul></div>
+      <div><h4>Company</h4><ul><li><a href="#developers">API docs</a></li><li><a href="#demo">Contact sales</a></li><li><a href="app.html#/login">Sign in</a></li><li><a href="app.html#/signup">Sign up</a></li></ul></div>
+    </div>
+    <div class="foot-base">
+      <span>© 2026 Bizpole Pay</span>
+      <ul><li><a href="#">Terms</a></li><li><a href="#">Privacy</a></li><li><a href="#">Refund policy</a></li><li><a href="#">Grievance redressal</a></li></ul>
+    </div>
   </div>
 </footer>
 
 <script>
-  // auth tabs
-  const show = pane => {
-    document.querySelectorAll('.tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.pane === pane));
-    document.getElementById('pane-login').classList.toggle('hidden', pane !== 'login');
-    document.getElementById('pane-signup').classList.toggle('hidden', pane !== 'signup');
-  };
-  document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => show(b.dataset.pane));
-  document.querySelectorAll('[data-tab]').forEach(a => a.addEventListener('click', () => show(a.dataset.tab)));
+  // Mobile menu
+  const nav = document.getElementById('nav'), menuBtn = document.getElementById('menu-btn');
+  menuBtn.onclick = () => { const o = nav.classList.toggle('open'); menuBtn.setAttribute('aria-expanded', o); };
+  nav.querySelectorAll('a').forEach(a => a.addEventListener('click', () => { nav.classList.remove('open'); menuBtn.setAttribute('aria-expanded', false); closeMega(); }));
 
-  // OTP toggle
-  let otp = false;
-  document.getElementById('otp-toggle').onclick = e => {
-    e.preventDefault(); otp = !otp;
-    document.querySelector('#pw-wrap label').textContent = otp ? 'One-time code' : 'Password';
-    const pw = document.getElementById('pw');
-    pw.type = otp ? 'text' : 'password'; pw.placeholder = otp ? '6-digit code' : '••••••••';
-    pw.inputMode = otp ? 'numeric' : 'text';
-    e.target.textContent = otp ? 'Use password instead' : 'Use OTP instead';
-  };
+  // Products mega menu
+  const prodBtn = document.getElementById('prod-btn'), mega = document.getElementById('mega');
+  const closeMega = () => { mega.classList.remove('open'); prodBtn.setAttribute('aria-expanded', false); };
+  prodBtn.onclick = e => { e.stopPropagation(); const o = mega.classList.toggle('open'); prodBtn.setAttribute('aria-expanded', o); };
+  document.addEventListener('click', e => { if (!mega.contains(e.target)) closeMega(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeMega(); prodBtn.focus(); } });
 
-  function demo(msg){ location.href = /account created/i.test(msg) ? 'app.html#/signup' : 'app.html#/login'; }
+  // Hero product tabs (arrow-key navigation per WAI-ARIA tabs pattern)
+  const tabs = [...document.querySelectorAll('.show-tabs [role=tab]')];
+  function select(tab){
+    tabs.forEach(t => {
+      const on = t === tab;
+      t.setAttribute('aria-selected', on); t.tabIndex = on ? 0 : -1;
+      document.getElementById(t.getAttribute('aria-controls')).hidden = !on;
+    });
+  }
+  tabs.forEach((t, i) => {
+    t.onclick = () => select(t);
+    t.onkeydown = e => {
+      const d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+      if (!d) return;
+      const n = tabs[(i + d + tabs.length) % tabs.length]; select(n); n.focus();
+    };
+  });
 
-  // dashboard preview
+  // Industries carousel
+  const track = document.getElementById('track'), prev = document.getElementById('prev'), next = document.getElementById('next');
+  const step = () => track.querySelector('.slide').offsetWidth + 20;
+  prev.onclick = () => track.scrollBy({ left: -step(), behavior: 'smooth' });
+  next.onclick = () => track.scrollBy({ left: step(), behavior: 'smooth' });
+  const arrows = () => { prev.disabled = track.scrollLeft < 8; next.disabled = track.scrollLeft + track.clientWidth > track.scrollWidth - 8; };
+  track.addEventListener('scroll', arrows, { passive: true }); window.addEventListener('resize', arrows); arrows();
+
+  // Dashboard preview: test/live switch
   const data = {
-    test: { mid:'MID · TEST-0000', k:['₹1,24,560','312 transactions','₹98,210','6 settlements','₹3,400','4 refunds'], bars:[30,52,41,66,58,74,63],
-            banner:"You're viewing test data. Complete onboarding to accept real payments." },
-    live: { mid:'MID · LIVE-0000', k:['₹0.00','0 transactions','₹0.00','0 settlements','₹0.00','0 refunds'], bars:[4,4,4,4,4,4,4],
-            banner:'Live mode unlocks after onboarding is approved.' }
+    test: { mid:'MID TEST-0000', k:['₹1,24,560','312 transactions','₹98,210','6 settlements','₹3,400','4 refunds'], bars:[30,52,41,66,58,74,63],
+            banner:"You're viewing test data. Finish onboarding to accept real payments." },
+    live: { mid:'MID LIVE-0000', k:['₹0.00','0 transactions','₹0.00','0 settlements','₹0.00','0 refunds'], bars:[3,3,3,3,3,3,3],
+            banner:'Live mode unlocks after your onboarding is approved.' }
   };
-  const bars = document.getElementById('bars');
-  function render(mode){
+  const sw = document.getElementById('mode'); let mode = 'test';
+  function render(){
     const d = data[mode];
     document.getElementById('mid').textContent = d.mid;
     ['k1','k1s','k2','k2s','k3','k3s'].forEach((id,i) => document.getElementById(id).textContent = d.k[i]);
-    bars.innerHTML = d.bars.map(h => `<i style="height:${h}%"></i>`).join('');
-    const b = document.getElementById('banner'); b.textContent = d.banner; b.classList.toggle('live', mode==='live');
-    document.getElementById('mode-label').textContent = mode==='live' ? 'Live mode' : 'Test mode';
-    document.getElementById('mode').classList.toggle('live', mode==='live');
+    document.getElementById('bars').innerHTML = d.bars.map(h => `<i style="height:${h}%"></i>`).join('');
+    const b = document.getElementById('banner'); b.textContent = d.banner; b.classList.toggle('live', mode === 'live');
+    document.getElementById('mode-label').textContent = mode === 'live' ? 'Live mode' : 'Test mode';
+    sw.classList.toggle('live', mode === 'live'); sw.setAttribute('aria-checked', mode === 'live');
   }
-  let mode = 'test';
-  document.getElementById('mode').onclick = () => render(mode = mode==='test' ? 'live' : 'test');
-  render(mode);
+  sw.onclick = () => { mode = mode === 'test' ? 'live' : 'test'; render(); };
+  render();
+
+  // Demo form (prototype: validates and confirms, nothing is sent)
+  const form = document.getElementById('demo-form'), err = document.getElementById('f-err');
+  form.onsubmit = e => {
+    e.preventDefault();
+    const bad = [...form.querySelectorAll('[required]')].find(f => !f.checkValidity());
+    if (bad) {
+      const name = form.querySelector(`label[for=${bad.id}]`).textContent.toLowerCase();
+      err.textContent = bad.value ? `Enter a valid ${name}.` : `Enter your ${name}.`;
+      err.style.color = 'var(--brand-hover)'; bad.focus(); return;
+    }
+    document.getElementById('done-name').textContent = form.elements.name.value.trim().split(' ')[0];
+    form.style.display = 'none';
+    const done = document.getElementById('done'); done.style.display = 'block'; done.focus();
+  };
 </script>
 </body>
 </html>
