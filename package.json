@@ -3,6 +3,7 @@
   "private": true,
   "scripts": {
     "dev": "node scripts/serve.js 8765",
+    "test": "node --test --test-concurrency=1 \"test/*.test.js\"",
     "db:migrate": "prisma migrate deploy",
     "db:status": "prisma migrate status"
   },

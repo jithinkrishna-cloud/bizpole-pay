@@ -166,7 +166,7 @@ module.exports = [
       }
     }
     return (await refunds(auth.merchantId, mode)).find((r) => r.id === id);
-  }],
+  }, { roles: ["OWNER", "ADMIN", "FINANCE"] }], // docs/MODULES.md: Developer, Support and Viewer cannot refund
 
   // Detail drawer: payment fields, TransactionEvent timeline, refunds and settlement.
   ["GET", "/transactions/:txnid", async ({ auth, mode, params }) => transactionDetail(auth.merchantId, mode, params.txnid)],

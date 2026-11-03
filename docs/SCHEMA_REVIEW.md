@@ -83,3 +83,14 @@ Not checked: concurrent refunds under real PostgreSQL row locking. The trigger t
 | Date | Version | Change |
 |---|---|---|
 | 2026-11-02 | v2 | PayU compatibility + structural redesign (this document). Frozen. |
+| 2026-11-03 | v2.1 | Nullable `User.platformRole` (`SUPER_ADMIN` only). Existing rows stay null. This is not a `MemberRole`, so Settings → team cannot grant it. |
+
+### Platform role
+
+A Super Admin is an existing user with `platformRole` set. Signup does not set it, and there is no default operator.
+
+```sql
+UPDATE "User" SET "platformRole" = 'SUPER_ADMIN' WHERE email = 'operator@example.com';
+```
+
+The control centre is `/super.html`. It calls `/api/super/*` (read-only). Merchant routes still require a merchant membership and are unchanged. Clear the role with `SET "platformRole" = NULL`.

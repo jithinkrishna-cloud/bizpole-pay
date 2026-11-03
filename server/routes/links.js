@@ -121,7 +121,7 @@ module.exports = [
     await audit(db, { merchantId: auth.merchantId, userId: auth.user.id, mode, action: "payment_link.created", entity: "PaymentLink", entityId: id,
       ip: clientIp(ctx.req), meta: { invoiceNumber: invoice, amount, customerAmount } });
     return (await list(auth.merchantId, mode, id))[0];
-  }],
+  }, { roles: ["OWNER", "ADMIN", "FINANCE", "DEVELOPER", "SUPPORT"] }], // docs/MODULES.md: create payment link
 
   // Extend (or set) expiry. An EXPIRED link becomes ACTIVE again; deactivated links stay deactivated.
   ["PATCH", "/links/:id", async (ctx) => {

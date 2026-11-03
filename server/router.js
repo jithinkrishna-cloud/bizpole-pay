@@ -19,9 +19,32 @@ const table = compile([
   ...require("./routes/onboarding"),
   ...require("./routes/settings"),
   ...require("./routes/developer"),
+  ...require("./routes/super"),
 ]);
 
 const WRITE_ROLES = ["OWNER", "ADMIN", "FINANCE", "DEVELOPER"];
+
+// Server-side gate. Platform routes do not fall through to merchant membership checks.
+function platformMode(value) {
+  const raw = String(value || "").toLowerCase();
+  if (!raw || raw === "all") return null;
+  return db.dbMode(raw);
+}
+
+function authorize(hit, auth, method) {
+  if (hit.opts.public) return null;
+  if (!auth) return { status: 401, message: "Please log in again." };
+  if (hit.opts.platform) {
+    if (auth.platformRole !== "SUPER_ADMIN") return { status: 403, message: "Super Admin access is required." };
+    return null;
+  }
+  if (hit.opts.session) return null;
+  if (!auth.merchantId) return { status: 403, message: "No merchant account on this login." };
+  // opts.roles replaces WRITE_ROLES for one route (docs/MODULES.md role table).
+  if (method !== "GET" && !hit.opts.anyRole && !(hit.opts.roles || WRITE_ROLES).includes(auth.role))
+    return { status: 403, message: hit.opts.roles ? "Your role can't do this on this account." : "Your role can only view this account." };
+  return null;
+}
 
 async function handle(req, res, path) {
   const extra = {};
@@ -43,14 +66,13 @@ async function handle(req, res, path) {
       throw new HttpError(415, "Send JSON");
 
     const auth = await getAuth(req);
-    if (!hit.opts.public && !auth) throw new HttpError(401, "Please log in again.");
-    if (auth && !hit.opts.public && !auth.merchantId) throw new HttpError(403, "No merchant account on this login.");
-    if (auth && req.method !== "GET" && !hit.opts.public && !hit.opts.anyRole && !WRITE_ROLES.includes(auth.role))
-      throw new HttpError(403, "Your role can only view this account.");
+    const denied = authorize(hit, auth, req.method);
+    if (denied) throw new HttpError(denied.status, denied.message);
 
     const ctx = {
       req, res, params, query, body, auth,
-      mode: db.dbMode(query.mode || body.mode || "test"),
+      // Merchant routes default to test. Platform routes treat "all" or a missing mode as every mode.
+      mode: hit.opts.platform ? platformMode(query.mode) : db.dbMode(query.mode || body.mode || "test"),
       setHeader: (k, v) => (extra[k] = v),
     };
     const out = await hit.handler(ctx);
@@ -70,4 +92,4 @@ async function handle(req, res, path) {
   }
 }
 
-module.exports = { handle };
+module.exports = { handle, authorize, platformMode, WRITE_ROLES };

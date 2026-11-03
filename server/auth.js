@@ -43,7 +43,7 @@ async function getAuth(req) {
   const t = readCookie(req);
   if (!t) return null;
   const row = await db.one(
-    `SELECT s.id AS "sessionId", s."merchantId", u.id AS "userId", u.name, u.email, u.mobile, u.status,
+    `SELECT s.id AS "sessionId", s."merchantId", u.id AS "userId", u.name, u.email, u.mobile, u.status, u."platformRole",
             m."displayName", m."legalName", m.status AS "merchantStatus", ms.role
        FROM "Session" s JOIN "User" u ON u.id = s."userId"
        LEFT JOIN "Merchant" m ON m.id = s."merchantId"
@@ -58,6 +58,7 @@ async function getAuth(req) {
     merchantId: row.merchantId,
     merchant: row.merchantId ? { id: row.merchantId, displayName: row.displayName, legalName: row.legalName, status: row.merchantStatus } : null,
     role: row.role,
+    platformRole: row.platformRole || null,
   };
 }
 
@@ -73,6 +74,7 @@ async function me(auth) {
     user: { name: auth.user.name, email: auth.user.email, mobile: auth.user.mobile },
     merchant: auth.merchant,
     role: auth.role,
+    platformRole: auth.platformRole || null,
     mids,
     onboarding: Object.fromEntries(STEP_KEYS.map((k) => [k, (steps.find((s) => s.key === k) || {}).status || "NOT_STARTED"])),
   };
@@ -205,9 +207,9 @@ const routes = [
     await db.query(`UPDATE "Session" SET "revokedAt"=now() WHERE id=$1`, [ctx.auth.sessionId]);
     ctx.setHeader("set-cookie", cookie("", 0));
     return { ok: true };
-  }],
+  }, { session: true }],
 
-  ["GET", "/auth/me", async (ctx) => me(ctx.auth)],
+  ["GET", "/auth/me", async (ctx) => me(ctx.auth), { session: true }],
 ];
 
 module.exports = { routes, getAuth, audit, clientIp, me, STEP_KEYS, normEmail, normMobile, EMAIL };

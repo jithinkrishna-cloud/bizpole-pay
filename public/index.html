@@ -31,9 +31,18 @@
   h3{font-size:19px;letter-spacing:-.015em;line-height:1.25}
   p{margin:0}
   .lead{font-size:18px;color:var(--muted);max-width:56ch}
-  .sec{padding:96px 0}
-  .sec-head{max-width:680px;margin-bottom:44px}
+  /* Sections: one padding, strict alternating backgrounds, clear dividers */
+  .sec{padding:96px 0;position:relative}
+  .sec.alt{background:var(--card);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .sec.alt + .sec,.dark-band + .sec{border-top:0}
+  .sec.alt .ops,.sec.alt .slide,.sec.alt .tile,.sec.alt .badge,.sec.alt .demo{background:var(--bg)}
+  .sec.alt .demo-r input,.sec.alt .demo-r select,.sec.alt .demo-r textarea{background:var(--card)}
+  .sec-head{max-width:680px;margin-bottom:48px}
   .sec-head p{margin-top:14px;font-size:17px;color:var(--muted)}
+  .eyebrow{display:inline-flex;align-items:center;gap:8px;font:600 12.5px/1 inherit;letter-spacing:.08em;text-transform:uppercase;color:var(--brand-hover);margin-bottom:16px}
+  .eyebrow:before{content:"";width:18px;height:2px;border-radius:2px;background:currentColor}
+  .dark-band .eyebrow{color:var(--sun)}
+  .sec-foot{margin-top:36px;text-align:center}
   .center{text-align:center;margin-left:auto;margin-right:auto}
 
   .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:999px;padding:12px 22px;font:600 15px/1.2 inherit;border:1.5px solid transparent;cursor:pointer;transition:background .15s,border-color .15s,color .15s;white-space:nowrap}
@@ -77,7 +86,7 @@
   .ic svg{width:21px;height:21px}
 
   /* ---------- hero ---------- */
-  .hero{padding:72px 0 40px}
+  .hero{padding:72px 0 64px}
   .hero-top{display:grid;grid-template-columns:1.1fr .9fr;gap:56px;align-items:end;margin-bottom:48px}
   .hero h1{font-size:clamp(40px,6.2vw,80px);letter-spacing:-.045em;line-height:.98}
   .hero h1 .u{background:linear-gradient(transparent 70%,var(--sun) 70%,var(--sun) 90%,transparent 90%);padding:0 .04em}
@@ -255,7 +264,7 @@
   .done-msg p{color:var(--muted)}
 
   /* ---------- closing ---------- */
-  .closing{text-align:center;padding:96px 0 88px}
+  .closing{text-align:center}
   .closing h2{font-size:clamp(34px,5vw,60px);letter-spacing:-.04em;max-width:16ch;margin:0 auto 18px}
   .closing p{color:var(--muted);font-size:17px;margin-bottom:28px}
   .closing .ctas{justify-content:center}
@@ -296,7 +305,9 @@
   }
   @media (max-width:640px){
     .wrap{padding:0 16px}
-    .sec{padding:68px 0}
+    .sec{padding:64px 0}
+    .hero{padding:48px 0 48px}
+    .sec-head{margin-bottom:32px}
     .ops{grid-template-columns:1fr}
     .op{border-right:0;border-bottom:1px solid var(--line)}
     .op:last-child{border-bottom:0}
@@ -485,9 +496,10 @@
   </section>
 
   <!-- OPERATIONS -->
-  <section class="sec" id="operations">
+  <section class="sec alt" id="operations">
     <div class="wrap">
       <div class="sec-head">
+        <span class="eyebrow">Platform</span>
         <h2>Everything you need to run your payment operations</h2>
         <p>From the moment a customer pays to the moment money lands in your bank, and back out to your vendors.</p>
       </div>
@@ -505,6 +517,7 @@
   <section class="sec dark-band" id="collect">
     <div class="wrap">
       <div class="sec-head">
+        <span class="eyebrow">Products</span>
         <h2>Collect payments, even without a website</h2>
         <p>Pick the way that fits how you sell today. Add the others as you grow.</p>
       </div>
@@ -547,6 +560,7 @@
   <section class="sec" id="integrate">
     <div class="wrap">
       <div class="sec-head">
+        <span class="eyebrow">Integrations</span>
         <h2>Payments, right inside how you already work</h2>
         <p>Plug into your store, connect your invoicing, or build on our API.</p>
       </div>
@@ -560,10 +574,10 @@
   </section>
 
   <!-- INDUSTRIES -->
-  <section class="sec" id="industries" style="padding-top:0">
+  <section class="sec alt" id="industries">
     <div class="wrap">
       <div class="ind-head">
-        <div class="sec-head"><h2>Built for the way you sell</h2><p>See how businesses like yours use Bizpole Pay.</p></div>
+        <div class="sec-head"><span class="eyebrow">Solutions</span><h2>Built for the way you sell</h2><p>See how businesses like yours use Bizpole Pay.</p></div>
         <div class="arrows"><button type="button" id="prev" aria-label="Previous industry"><svg width="20" height="20"><use href="#i-left"/></svg></button><button type="button" id="next" aria-label="Next industry"><svg width="20" height="20"><use href="#i-right"/></svg></button></div>
       </div>
       <div class="track" id="track" tabindex="0" aria-label="Industries">
@@ -588,9 +602,10 @@
   </section>
 
   <!-- DASHBOARD -->
-  <section class="sec" id="dashboard" style="background:var(--soft)">
+  <section class="sec" id="dashboard">
     <div class="wrap">
       <div class="sec-head">
+        <span class="eyebrow">Dashboard</span>
         <h2>Every rupee, from checkout to your bank</h2>
         <p>Flip between test and live data. Watch success rates, settlements and onboarding from one home screen.</p>
       </div>
@@ -631,15 +646,16 @@
           </div>
         </div>
       </div>
-      <div style="margin-top:28px;text-align:center"><a class="btn btn-dark" href="app.html#/login">Open the dashboard demo</a></div>
+      <div class="sec-foot"><a class="btn btn-dark" href="app.html#/login">Open the dashboard demo</a></div>
     </div>
   </section>
 
   <!-- DEVELOPERS -->
-  <section class="sec" id="developers">
+  <section class="sec alt" id="developers">
     <div class="wrap dev">
       <div>
         <div class="sec-head" style="margin-bottom:0">
+          <span class="eyebrow">Developers</span>
           <h2>Build your own payment flow</h2>
           <p>One REST call creates an order. We handle hashing, provider callbacks, verification and webhooks.</p>
         </div>
@@ -671,9 +687,10 @@ res.redirect(order.checkout_url);
   </section>
 
   <!-- TRUST -->
-  <section class="sec" style="padding-top:0">
+  <section class="sec" id="security">
     <div class="wrap">
       <div class="sec-head">
+        <span class="eyebrow">Security</span>
         <h2>Your money and your customers' data, kept safe</h2>
       </div>
       <div class="trust">
@@ -686,7 +703,7 @@ res.redirect(order.checkout_url);
   </section>
 
   <!-- DEMO -->
-  <section class="sec" id="demo" style="padding-top:0">
+  <section class="sec alt" id="demo">
     <div class="wrap">
       <div class="demo">
         <div class="demo-l">
@@ -728,7 +745,7 @@ res.redirect(order.checkout_url);
   </section>
 
   <!-- CLOSING CTA -->
-  <section class="closing" style="background:var(--card);border-top:1px solid var(--line)">
+  <section class="sec closing" id="start">
     <div class="wrap">
       <h2>Start collecting payments today</h2>
       <p>Explore every feature in test mode. Go live after five onboarding steps.</p>

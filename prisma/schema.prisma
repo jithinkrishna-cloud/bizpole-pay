@@ -39,6 +39,12 @@ enum UserStatus {
   DISABLED
 }
 
+// Platform operator. Null on every merchant user. Not a MemberRole, so team
+// management cannot grant it. Assigned only by a manual database update.
+enum PlatformRole {
+  SUPER_ADMIN
+}
+
 enum MemberRole {
   OWNER
   ADMIN
@@ -348,8 +354,9 @@ model User {
   passwordHash     String?    // argon2id; null for SSO-only
   emailVerifiedAt  DateTime?
   mobileVerifiedAt DateTime?
-  status           UserStatus @default(ACTIVE)
-  failedLogins     Int        @default(0)
+  status           UserStatus    @default(ACTIVE)
+  platformRole     PlatformRole?
+  failedLogins     Int            @default(0)
   lockedUntil      DateTime?
   lastLoginAt      DateTime?
   createdAt        DateTime   @default(now())

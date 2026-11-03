@@ -1590,8 +1590,17 @@
     <p class="muted" style="text-align:center;margin-top:18px"><a class="linkish" href="#/login">Back to login</a></p>
   </form></div></div>`,
       };
+      // One sign-in page for everyone. A Super Admin goes to the control centre when the login has no merchant
+      // account, or when sent here from it (#/login?next=super). The target is fixed; access is enforced by the server.
+      function toControlCentre(me) {
+        if (!me || me.platformRole !== "SUPER_ADMIN") return false;
+        if (me.merchant && !/[?&]next=super\b/.test(location.hash)) return false;
+        location.replace("/super.html");
+        return true;
+      }
       // Signed in: load this mode's data, then open the dashboard.
       async function signedIn(me, msg) {
+        if (toControlCentre(me)) return;
         applyMe(me);
         state.mode = "test";
         $("#root").innerHTML = loadingHtml;
@@ -1874,7 +1883,9 @@
       (async () => {
         $("#root").innerHTML = loadingHtml;
         try {
-          applyMe(await api("/auth/me", { mode: false }));
+          const me = await api("/auth/me", { mode: false });
+          if (toControlCentre(me)) return;
+          applyMe(me);
           await loadMode(state.mode);
         } catch (e) {
           state.user = null;

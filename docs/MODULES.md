@@ -30,7 +30,7 @@ Mirrors the observed PayU dashboard sidebar. **Phase**: 1 = MVP, 2 = later, — 
 |---|---|---|---|---|---|---|
 | View transactions/settlements | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Refund | ✓ | ✓ | ✓ | | | |
-| Create payment link | ✓ | ✓ | ✓ | | ✓ | |
+| Create payment link | ✓ | ✓ | ✓ | ✓ | ✓ | |
 | Reveal salt / manage keys & webhooks | ✓ | ✓ | | ✓ | | |
 | Edit bank account / onboarding | ✓ | ✓ | | | | |
 | Manage team | ✓ | ✓ | | | | |
