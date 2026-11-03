@@ -143,7 +143,7 @@
     empty: ["No refunds yet", "Refunds appear here when an organization refunds a payment."], note: REFUND_NOTE,
   });
   SA.pages["refund-requests"] = listPage({
-    path: "refund-requests", title: "Refund requests", sub: "Refunds not yet completed: recorded by Paynest, queued at PayU, or in progress at the bank.", api: "/super/refunds",
+    path: "refund-requests", title: "Refund requests", sub: "Refunds not yet completed: recorded by Bizpole Pay, queued at PayU, or in progress at the bank.", api: "/super/refunds",
     chips: [["all", "All open", { status: "REQUESTED,QUEUED,IN_PROGRESS" }], ["requested", "Not yet sent to PayU", { status: "REQUESTED" }], ["queued", "Queued at PayU", { status: "QUEUED" }],
       ["progress", "In progress", { status: "IN_PROGRESS" }]],
     search: "Search txnid, PayU request ID or bank ARN", rangeLabel: "Requested", cols: REFUND_COLS, rowHref: (r) => refundHref(r.id), stats: refundStats,
@@ -178,12 +178,12 @@
   // ── Reconciliation ──
   const KIND = { VERIFY_PAYMENTS: "Payment verification", REFUND_STATUS: "Refund status", SETTLEMENT_SYNC: "Settlement sync", CHARGEBACK_SYNC: "Chargeback sync", PAYOUT_STATUS: "Payout status", MANDATE_STATUS: "Mandate status" };
   const RESOLUTION = { OPEN: "Open", AUTO_FIXED: "Fixed automatically", MANUALLY_FIXED: "Fixed manually", IGNORED: "Ignored" };
-  const RECON_EMPTY = "Reconciliation compares Paynest's records with PayU's (payments, refunds, settlements). The reconciliation job isn't scheduled yet, so no runs have been recorded.";
-  const category = (x) => (/amount/i.test(x.field) ? "Amount mismatch" : x.local == null || x.payu == null ? (x.local == null ? "Missing in Paynest" : "Missing at PayU") : "Value mismatch");
+  const RECON_EMPTY = "Reconciliation compares Bizpole Pay's records with PayU's (payments, refunds, settlements). The reconciliation job isn't scheduled yet, so no runs have been recorded.";
+  const category = (x) => (/amount/i.test(x.field) ? "Amount mismatch" : x.local == null || x.payu == null ? (x.local == null ? "Missing in Bizpole Pay" : "Missing at PayU") : "Value mismatch");
   SA.pages.recon = {
     title: "Reconciliation",
     async render(view, { params: p, isCurrent }) {
-      const head = ui.head("Reconciliation", "How Paynest's records compare with PayU's: runs, matched and unmatched records, and open exceptions.", ui.select("rc-range", "Runs", RANGES, p.range || ""));
+      const head = ui.head("Reconciliation", "How Bizpole Pay's records compare with PayU's: runs, matched and unmatched records, and open exceptions.", ui.select("rc-range", "Runs", RANGES, p.range || ""));
       view.innerHTML = head + ui.skelPanel(1, 30) + `<div class="grid g2">${ui.skelPanel(4)}${ui.skelPanel(4)}</div>` + ui.skelPanel(6);
       const hrefFor = (over) => SA.hashFor("recon", { ...p, ...over });
       const [s, runs] = await Promise.all([SA.api("/super/recon", { range: p.range }), SA.api("/super/recon/runs", { range: p.range, page: p.page, size: 25 })]);
@@ -219,7 +219,7 @@
 
   const excList = listPage({
     path: "recon-exceptions", title: "Reconciliation exceptions", api: "/super/recon/mismatches",
-    sub: "Records where Paynest and PayU disagree: amount mismatches, missing transactions and other differences.",
+    sub: "Records where Bizpole Pay and PayU disagree: amount mismatches, missing transactions and other differences.",
     chips: [["open", "Open", { resolution: "OPEN" }], ["all", "All", {}], ["auto_fixed", "Fixed automatically", { resolution: "AUTO_FIXED" }],
       ["manually_fixed", "Fixed manually", { resolution: "MANUALLY_FIXED" }], ["ignored", "Ignored", { resolution: "IGNORED" }]],
     selects: [["rx-cat", "Type", "category", [["", "Any type"], ["amount", "Amount mismatch"], ["missing", "Missing record"], ["other", "Other"]]],
@@ -230,7 +230,7 @@
       { label: "Type", render: (x) => esc(category(x)) },
       { label: "Record", render: (x) => `${esc(fmt.label(x.entityType))}${x.entityId ? `<div class="mono muted" style="font-size:11.5px">${esc(x.entityId)}</div>` : ""}` },
       { label: "Field", render: (x) => mono(x.field) },
-      { label: "Paynest", render: (x) => (x.local == null ? '<span class="muted">Missing</span>' : mono(x.local)) },
+      { label: "Bizpole Pay", render: (x) => (x.local == null ? '<span class="muted">Missing</span>' : mono(x.local)) },
       { label: "PayU", render: (x) => (x.payu == null ? '<span class="muted">Missing</span>' : mono(x.payu)) },
       { label: "Organization", render: (x) => orgCell(x.org), cls: "ellip" },
       { label: "Check", render: (x) => esc(KIND[x.kind] || fmt.label(x.kind)) },
@@ -343,7 +343,7 @@
     const checks = `<ul class="steps">
       <li><span class="mark ${d.formula ? "bad" : "done"}" aria-hidden="true"></span><span>Net equals gross minus refunds, chargebacks, fees and tax</span><span>${d.formula ? `<span style="color:var(--bad)">Off by ${fmt.inr(d.formula)}</span>` : pill("Matches", "ok")}</span></li>
       <li><span class="mark ${d.lines == null ? "" : d.lines ? "bad" : "done"}" aria-hidden="true"></span><span>Net equals the sum of its lines</span><span>${d.lines == null ? '<span class="muted">No lines synced</span>' : d.lines ? `<span style="color:var(--bad)">Off by ${fmt.inr(d.lines)}</span>` : pill("Matches", "ok")}</span></li>
-      <li><span class="mark ${unmatched ? "bad" : "done"}" aria-hidden="true"></span><span>Every captured line matches a Paynest transaction</span><span>${unmatched ? `<span style="color:var(--bad)">${count(unmatched, "line", "lines")} unmatched</span>` : pill(s.lines.length ? "All matched" : "No lines", s.lines.length ? "ok" : "")}</span></li></ul>`;
+      <li><span class="mark ${unmatched ? "bad" : "done"}" aria-hidden="true"></span><span>Every captured line matches a Bizpole Pay transaction</span><span>${unmatched ? `<span style="color:var(--bad)">${count(unmatched, "line", "lines")} unmatched</span>` : pill(s.lines.length ? "All matched" : "No lines", s.lines.length ? "ok" : "")}</span></li></ul>`;
     view.innerHTML = header(s.utr || s.payuSettlementId, `${ui.pill(s.status)}<b>${fmt.inr(s.net)}</b>${ui.modeTag(s.mode)}${orgCell(s.org)}<span>${esc(fmt.dt(s.date))} IST</span>`, "#/settlements", "All settlements", true)
       + `<section class="panel"><div class="stat-row"><div><b>${fmt.inr(s.gross)}</b><span>Gross</span></div><div><b>${fmt.inr(s.refunds + s.chargebacks)}</b><span>Refunds and chargebacks</span></div>
          <div><b>${fmt.inr(s.fee)}</b><span>Fees</span></div><div><b>${fmt.inr(s.tax)}</b><span>Tax</span></div><div><b>${fmt.inr(s.net)}</b><span>Net to bank</span></div></div></section>`
@@ -353,7 +353,7 @@
            ["Completed", s.completedAt ? esc(fmt.dt(s.completedAt)) : ""], ["Synced from PayU", esc(fmt.dt(s.fetchedAt))]])}</div>`)}</div>`
       + ui.panel("Lines", ui.table([
         { label: "Type", render: (l) => esc(fmt.label(l.action)) },
-        { label: "Transaction", render: (l) => (l.txnid ? (l.unmatched ? `${mono(l.txnid)} <span class="pill bad">Not in Paynest</span>` : `<a class="mono" href="${txnHref(l.txnid)}">${esc(l.txnid)}</a>`) : '<span class="muted">—</span>') },
+        { label: "Transaction", render: (l) => (l.txnid ? (l.unmatched ? `${mono(l.txnid)} <span class="pill bad">Not in Bizpole Pay</span>` : `<a class="mono" href="${txnHref(l.txnid)}">${esc(l.txnid)}</a>`) : '<span class="muted">—</span>') },
         { label: "PayU ID", render: (l) => mono(l.payuId) }, { label: "Method", render: (l) => esc(l.method || "—") },
         { label: "Gross", align: "r", render: (l) => fmt.inr(l.gross) }, { label: "Fee", align: "r", render: (l) => fmt.inr(l.fee) },
         { label: "Tax", align: "r", render: (l) => fmt.inr(l.tax) }, { label: "Net", align: "r", render: (l) => fmt.inr(l.net) },
@@ -370,8 +370,8 @@
     SA.crumb(kind, "#/recon-exceptions");
     view.innerHTML = header(kind === "Amount mismatch" ? `Amount mismatch on ${fmt.label(x.entityType).toLowerCase()}` : `${kind}: ${x.field}`, `${pill(RESOLUTION[x.resolution] || x.resolution, x.resolution === "OPEN" ? "warn" : "ok")}${ui.modeTag(x.run.mode)}${orgCell(x.org)}<span>Found ${esc(fmt.dt(x.date))} IST</span>`, "#/recon-exceptions", "All exceptions")
       + `<div class="grid g2">
-        ${ui.panel("Difference", `<div class="panel-body">${ui.kv([["Record type", esc(fmt.label(x.entityType))], ["Paynest record", mono(x.entityId)], ["PayU reference", mono(x.payuRef)], ["Field", mono(x.field)],
-          ["Value in Paynest", x.local == null ? '<span style="color:var(--bad)">Missing</span>' : mono(x.local)], ["Value at PayU", x.payu == null ? '<span style="color:var(--bad)">Missing</span>' : mono(x.payu)]])}</div>`)}
+        ${ui.panel("Difference", `<div class="panel-body">${ui.kv([["Record type", esc(fmt.label(x.entityType))], ["Bizpole Pay record", mono(x.entityId)], ["PayU reference", mono(x.payuRef)], ["Field", mono(x.field)],
+          ["Value in Bizpole Pay", x.local == null ? '<span style="color:var(--bad)">Missing</span>' : mono(x.local)], ["Value at PayU", x.payu == null ? '<span style="color:var(--bad)">Missing</span>' : mono(x.payu)]])}</div>`)}
         ${ui.panel("Reconciliation run", `<div class="panel-body">${ui.kv([["Check", esc(KIND[x.run.kind] || fmt.label(x.run.kind))], ["Run status", ui.pill(x.run.status)],
           ["Window", `${esc(fmt.dt(x.run.windowFrom))} – ${esc(fmt.dt(x.run.windowTo))}`], ["Run ID", mono(x.run.id)]])}</div>`)}
       </div>`

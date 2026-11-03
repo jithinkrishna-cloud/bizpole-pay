@@ -87,7 +87,7 @@
   SA.pages.providers = {
     title: "Payment providers",
     async render(view, { isCurrent }) {
-      const head = ui.head("Payment providers", "Payment processors Paynest is integrated with. PayU processes every payment; Paynest stores its own record of each one.");
+      const head = ui.head("Payment providers", "Payment processors Bizpole Pay is integrated with. PayU processes every payment; Bizpole Pay stores its own record of each one.");
       view.innerHTML = head + ui.skelPanel(4);
       const [list, health] = await Promise.all([SA.api("/super/providers"), SA.api("/super/integration-health")]);
       if (!isCurrent()) return;
@@ -143,7 +143,7 @@
         ],
       }, isCurrent);
       if (!r) return;
-      view.innerHTML = head + r.html + note("Connection health is read from this account's own payments: “Working” when its latest payment outcome was a success. Paynest does not probe PayU separately.");
+      view.innerHTML = head + r.html + note("Connection health is read from this account's own payments: “Working” when its latest payment outcome was a success. Bizpole Pay does not probe PayU separately.");
       r.bind(view);
     },
   };
@@ -155,30 +155,30 @@
       const head = ui.head(title, sub);
       view.innerHTML = head + ui.skelPanel(8);
       const r = await pagedPanel(view, p, {
-        path, api: "/super/api-keys", title: activity ? "Keys by last use" : "Paynest API keys", search: "Search key name, prefix or organization",
+        path, api: "/super/api-keys", title: activity ? "Keys by last use" : "Bizpole Pay API keys", search: "Search key name, prefix or organization",
         filters: [[path + "-state", "State", "state", [["", "Active and revoked"], ["active", "Active"], ["revoked", "Revoked"]]]],
-        empty: ["No API keys", "Organizations create API keys in their developer settings to call the Paynest API from their servers."],
+        empty: ["No API keys", "Organizations create API keys in their developer settings to call the Bizpole Pay API from their servers."],
         sub: (d) => `${count(d.total, "key", "keys")}, ${modeText()}`, rowHref: keyHref, cols: KEY_COLS(activity),
       }, isCurrent);
       if (!r) return;
       view.innerHTML = head + r.html + note(activity
-        ? "Paynest records only when each key was last used. There is no per-request API log yet, so request counts and error rates aren't available."
-        : "Only the key prefix is shown. Paynest stores a hash of each secret and can't display it. Keys are created and revoked by each organization.");
+        ? "Bizpole Pay records only when each key was last used. There is no per-request API log yet, so request counts and error rates aren't available."
+        : "Only the key prefix is shown. Bizpole Pay stores a hash of each secret and can't display it. Keys are created and revoked by each organization.");
       r.bind(view);
     },
   });
-  SA.pages["api-credentials"] = keysPage("api-credentials", "API credentials", "Paynest API keys issued to organizations for server-to-server calls.", false);
-  SA.pages["api-activity"] = keysPage("api-activity", "API activity", "Which API keys are in use, from the last time each one called the Paynest API.", true);
+  SA.pages["api-credentials"] = keysPage("api-credentials", "API credentials", "Bizpole Pay API keys issued to organizations for server-to-server calls.", false);
+  SA.pages["api-activity"] = keysPage("api-activity", "API activity", "Which API keys are in use, from the last time each one called the Bizpole Pay API.", true);
 
   // ── Webhook events: inbound (PayU → Paynest) and outbound (Paynest → merchant) ──
   const INBOUND_FILTERS = [["wi-source", "Type", "source", [["", "Any type"], ...Object.entries(SOURCE)]],
     ["wi-proc", "Processing", "processing", [["", "Any"], ["RECEIVED", "Received"], ["PROCESSED", "Processed"], ["DUPLICATE", "Duplicate"], ["FAILED", "Failed"], ["SIGNATURE_INVALID", "Signature invalid"]]]];
-  const INBOUND_EMPTY = ["No PayU events recorded", "Paynest stores every PayU callback and webhook before processing it. The receiver isn't connected yet, so none have arrived."];
+  const INBOUND_EMPTY = ["No PayU events recorded", "Bizpole Pay stores every PayU callback and webhook before processing it. The receiver isn't connected yet, so none have arrived."];
   SA.pages.webhooks = {
     title: "Webhook events",
     async render(view, { params: p, isCurrent }) {
       const dir = p.flow === "out" ? "out" : "in";
-      const head = ui.head("Webhook events", "Messages from PayU to Paynest, and webhook deliveries from Paynest to merchants' servers.");
+      const head = ui.head("Webhook events", "Messages from PayU to Bizpole Pay, and webhook deliveries from Bizpole Pay to merchants' servers.");
       const tabs = ui.tabs([["in", "From PayU (inbound)"], ["out", "To merchants (outbound)"]], dir, (k) => SA.hashFor("webhooks", k === "in" ? {} : { flow: k }));
       view.innerHTML = head + tabs + ui.skelPanel(8);
       const r = await pagedPanel(view, p, dir === "in"

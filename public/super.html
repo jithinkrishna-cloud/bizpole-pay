@@ -7,32 +7,36 @@
     <!-- No inline scripts or handlers: everything runs from /super/*.js. -->
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'self'; object-src 'none'" />
     <meta name="referrer" content="no-referrer" />
-    <title>Paynest Control Centre</title>
+    <title>Bizpole Pay Control Centre</title>
     <link rel="icon" href="data:," />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
     <style>
       :root {
-        --nav: #0f1b2d; --nav-2: #16263d; --nav-3: #1d3150; --nav-ink: #d3dbe6; --nav-muted: #8392a8; --nav-line: #22344f;
-        --bg: #f2f4f7; --surface: #ffffff; --sunken: #f7f8fa; --line: #e2e6ec; --line-2: #edf0f4;
-        --ink: #142033; --ink-2: #3a4658; --muted: #667185; --faint: #98a2b3;
-        --accent: #0b6e6a; --accent-2: #095c59; --accent-soft: #e2f0ef;
-        --ok: #1d7a45; --ok-soft: #e4f3ea; --warn: #9a6205; --warn-soft: #fbf0db; --bad: #b42335; --bad-soft: #fbe6e8; --info: #2c5aa0; --info-soft: #e6eef9;
-        --band-all: #5b6b82; --band-test: #d1931f; --band-live: #0b6e6a;
-        --r-sm: 4px; --r: 6px; --r-lg: 8px;
-        --shadow: 0 1px 2px rgba(16, 27, 45, 0.06);
-        --shadow-pop: 0 8px 24px rgba(16, 27, 45, 0.14), 0 1px 3px rgba(16, 27, 45, 0.08);
-        --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
-        --mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+        /* Bizpole Pay brand (docs/PAGE_BUILD_GUIDE.md): charcoal foundation, warm paper, coral for actions, solar yellow for emphasis. */
+        --nav: #211f24; --nav-2: #2c292f; --nav-3: #343138; --nav-ink: #e4e1dc; --nav-muted: #9a958f; --nav-line: #353238;
+        --bg: #f6f4ef; --surface: #fffefb; --sunken: #f3f1ec; --line: #e3e0d9; --line-2: #eeece7;
+        --ink: #211f24; --ink-2: #343138; --muted: #6f6a66; --faint: #a39e97;
+        --accent: #e65f55; --accent-2: #d14e44; --accent-soft: #fbe8e6;
+        --yellow: #f1c64b; --yellow-soft: #fcf3d9;
+        --ok: #2f8f5b; --ok-soft: #e4f2ea; --warn: #8f6812; --warn-soft: #fcf3d9; --bad: #c8463c; --bad-soft: #fbe8e6; --info: #4a4550; --info-soft: #eeece7;
+        --band-all: #8a858f; --band-test: #f1c64b; --band-live: #2f8f5b;
+        --r-sm: 6px; --r: 8px; --r-lg: 12px;
+        --shadow: 0 1px 2px rgba(33, 31, 36, 0.06);
+        --shadow-pop: 0 10px 28px rgba(33, 31, 36, 0.14), 0 1px 3px rgba(33, 31, 36, 0.08);
+        --sans: "Geist", "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+        --mono: "Geist Mono", "JetBrains Mono", ui-monospace, Consolas, monospace;
         --side: 248px;
       }
       * { box-sizing: border-box; }
       html, body { margin: 0; height: 100%; }
-      body { font: 14px/1.45 var(--sans); color: var(--ink); background: var(--bg); -webkit-font-smoothing: antialiased; }
+      body { font: 14px/1.45 var(--sans); color: var(--ink); background: var(--bg); -webkit-font-smoothing: antialiased; letter-spacing: -0.005em; }
       button, input, select { font: inherit; color: inherit; }
-      a { color: var(--accent); text-decoration: none; }
-      a:hover { text-decoration: underline; }
+      a { color: var(--ink); text-decoration: none; }
+      /* Content links: charcoal text with a coral underline (coral text alone is below 4.5:1 on paper). */
+      #view a:where(:not(.btn, .chip, .kpi, .sort, .tabs a, .status-strip a)) { text-decoration: underline; text-decoration-color: rgba(230, 95, 85, 0.5); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+      #view a:where(:not(.btn, .chip, .kpi, .sort, .tabs a, .status-strip a)):hover { text-decoration-color: var(--accent); color: var(--accent-2); }
       :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
       svg.ico { width: 16px; height: 16px; flex: none; vertical-align: -3px; }
       .num { font-variant-numeric: tabular-nums; }
@@ -46,10 +50,9 @@
       body.collapsed { --side: 64px; }
       .side { background: var(--nav); color: var(--nav-ink); position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
       .brand { display: flex; align-items: center; gap: 10px; padding: 16px 16px 14px; border-bottom: 1px solid var(--nav-line); min-height: 60px; }
-      .brand-mark { width: 30px; height: 30px; flex: none; border-radius: var(--r); background: var(--accent); display: grid; place-items: center; }
-      .brand-mark svg { width: 18px; height: 18px; }
+      .brand-mark { width: 26px; height: 26px; flex: none; border-radius: 8px; background: linear-gradient(135deg, var(--yellow) 0 50%, var(--accent) 50% 100%); box-shadow: inset 0 0 0 2px rgba(33, 31, 36, 0.08); }
       .brand-text { line-height: 1.15; white-space: nowrap; }
-      .brand-text b { display: block; font-weight: 600; color: #fff; font-size: 14px; }
+      .brand-text b { display: block; font-weight: 700; color: #f6f4ef; font-size: 16px; letter-spacing: -0.02em; }
       .brand-text span { font-size: 12px; color: var(--nav-muted); }
       .nav { flex: 1; overflow-y: auto; padding: 8px 8px 16px; scrollbar-width: thin; scrollbar-color: var(--nav-3) transparent; }
       .nav-group { margin-top: 10px; }
@@ -62,14 +65,14 @@
       .nav ul { list-style: none; margin: 2px 0 0; padding: 0; }
       .nav li a { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: var(--r-sm); color: var(--nav-ink); font-size: 13.5px; white-space: nowrap; }
       .nav li a:hover { background: var(--nav-2); text-decoration: none; }
-      .nav li a[aria-current="page"] { background: var(--nav-3); color: #fff; box-shadow: inset 2px 0 0 var(--accent); }
+      .nav li a[aria-current="page"] { background: var(--yellow); color: var(--ink); font-weight: 600; }
       .nav li a > span:not(.soon) { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
       .nav li a .soon { flex: none; font-size: 11px; color: var(--nav-muted); }
       .nav .ico { width: 16px; height: 16px; flex: none; opacity: 0.85; }
       .side-foot { border-top: 1px solid var(--nav-line); padding: 8px; }
       .side-foot button { all: unset; box-sizing: border-box; width: 100%; display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--r-sm); color: var(--nav-muted); cursor: pointer; font-size: 13px; white-space: nowrap; }
       .side-foot .ico { width: 16px; height: 16px; flex: none; }
-      .scrim { display: none; position: fixed; inset: 0; background: rgba(15, 27, 45, 0.4); z-index: 50; }
+      .scrim { display: none; position: fixed; inset: 0; background: rgba(33, 31, 36, 0.4); z-index: 50; }
       .side-foot button:hover { background: var(--nav-2); color: var(--nav-ink); }
       .side-foot button:focus-visible { outline: 2px solid var(--accent); }
       body.collapsed .brand-text, body.collapsed .nav-group > button span, body.collapsed .nav-group > button .chev,
@@ -91,12 +94,14 @@
       .crumbs { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); min-width: 0; white-space: nowrap; overflow: hidden; }
       .crumbs b { color: var(--ink); font-weight: 500; overflow: hidden; text-overflow: ellipsis; }
       .crumbs .sep { color: var(--faint); }
+      .crumbs a { color: var(--muted); }
+      .crumbs a:hover { color: var(--ink); text-decoration: underline; text-decoration-color: var(--accent); text-underline-offset: 3px; }
       .top-tools { margin-left: auto; display: flex; align-items: center; gap: 8px; }
       .search { position: relative; }
       .search input { width: 300px; height: 34px; padding: 0 10px 0 32px; border: 1px solid var(--line); border-radius: var(--r); background: var(--sunken); }
-      .search input:focus { background: #fff; border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+      .search input:focus { background: var(--surface); border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
       .search > svg { position: absolute; left: 10px; top: 9px; width: 16px; height: 16px; color: var(--faint); pointer-events: none; }
-      .search kbd { position: absolute; right: 8px; top: 7px; font: 11px var(--mono); color: var(--faint); border: 1px solid var(--line); border-radius: 3px; padding: 1px 5px; background: #fff; }
+      .search kbd { position: absolute; right: 8px; top: 7px; font: 11px var(--mono); color: var(--faint); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; background: var(--surface); }
       .pop { position: absolute; top: calc(100% + 6px); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--shadow-pop); z-index: 40; }
       .search .pop { left: 0; width: 440px; max-height: 70vh; overflow-y: auto; padding: 6px; }
       .sr-group { padding: 6px 8px 2px; font-size: 12px; font-weight: 600; color: var(--muted); }
@@ -159,17 +164,17 @@
       .pill.bad { background: var(--bad-soft); color: var(--bad); }
       .pill.info { background: var(--info-soft); color: var(--info); }
       .tag { display: inline-block; font-size: 11.5px; padding: 0 6px; border-radius: 3px; border: 1px solid var(--line); color: var(--muted); line-height: 18px; }
-      .tag.test { border-color: #ecd3a2; color: var(--warn); background: var(--warn-soft); }
-      .tag.live { border-color: #b7dcd9; color: var(--accent); background: var(--accent-soft); }
+      .tag.test { border-color: #efd99a; color: var(--warn); background: var(--yellow-soft); }
+      .tag.live { border-color: #bfe0cd; color: var(--ok); background: var(--ok-soft); }
 
       .btn { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); color: var(--ink); font-size: 13px; font-weight: 500; cursor: pointer; white-space: nowrap; }
-      .btn:hover { background: var(--sunken); text-decoration: none; }
+      .btn:hover { background: var(--sunken); text-decoration: none; color: var(--ink); }
       .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
       .btn.primary:hover { background: var(--accent-2); }
       .btn.danger { background: var(--bad); border-color: var(--bad); color: #fff; }
       .btn[disabled] { opacity: 0.55; cursor: not-allowed; }
       .field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
-      .field input, .field select, input.inp, select.inp { height: 32px; padding: 0 10px; border: 1px solid var(--line); border-radius: var(--r); background: #fff; }
+      .field input, .field select, input.inp, select.inp { height: 34px; padding: 0 10px; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); }
       .field input:focus, input.inp:focus, select.inp:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 
       .tbl-wrap { overflow-x: auto; }
@@ -177,7 +182,7 @@
       .tbl th { text-align: left; font-weight: 500; color: var(--muted); font-size: 12.5px; padding: 8px 12px; border-bottom: 1px solid var(--line); background: var(--sunken); white-space: nowrap; position: sticky; top: 0; }
       .tbl td { padding: 8px 12px; border-bottom: 1px solid var(--line-2); vertical-align: top; }
       .tbl tr:last-child td { border-bottom: 0; }
-      .tbl tbody tr:hover td { background: #fafbfc; }
+      .tbl tbody tr:hover td { background: #faf8f3; }
       .tbl .r { text-align: right; font-variant-numeric: tabular-nums; }
       .tbl .nowrap { white-space: nowrap; }
       .tbl .ellip { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -192,7 +197,7 @@
       .empty { padding: 28px 20px; text-align: center; color: var(--muted); font-size: 13px; }
       .empty b { display: block; color: var(--ink-2); font-weight: 500; margin-bottom: 4px; font-size: 13.5px; }
       .empty p { margin: 0 auto; max-width: 48ch; }
-      .error-box { border: 1px solid #f1c3c9; background: var(--bad-soft); color: var(--bad); border-radius: var(--r-lg); padding: 14px 16px; display: flex; gap: 12px; align-items: center; }
+      .error-box { border: 1px solid #f2c4bf; background: var(--bad-soft); color: var(--bad); border-radius: var(--r-lg); padding: 14px 16px; display: flex; gap: 12px; align-items: center; }
       .error-box .btn { margin-left: auto; }
       .skel { background: var(--line-2); border-radius: var(--r-sm); animation: pulse 1.2s ease-in-out infinite; }
       @keyframes pulse { 50% { opacity: 0.45; } }
@@ -257,9 +262,9 @@
       /* Toasts and dialogs */
       .toasts { position: fixed; right: 20px; bottom: 20px; z-index: 100; display: flex; flex-direction: column; gap: 8px; }
       .toast { background: var(--nav); color: #fff; padding: 10px 14px; border-radius: var(--r); box-shadow: var(--shadow-pop); font-size: 13.5px; max-width: 380px; border-left: 3px solid var(--accent); }
-      .toast.bad { border-left-color: #ff7b8a; }
+      .toast.bad { border-left-color: var(--bad); }
       dialog { border: 1px solid var(--line); border-radius: var(--r-lg); padding: 0; box-shadow: var(--shadow-pop); width: min(440px, calc(100vw - 32px)); color: var(--ink); }
-      dialog::backdrop { background: rgba(15, 27, 45, 0.45); }
+      dialog::backdrop { background: rgba(33, 31, 36, 0.45); }
       dialog h2 { margin: 0; padding: 16px 20px 0; font-size: 16px; font-weight: 600; }
       dialog .dlg-body { padding: 8px 20px 16px; color: var(--ink-2); }
       dialog .dlg-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 20px; border-top: 1px solid var(--line-2); background: var(--sunken); }
@@ -321,10 +326,8 @@
     <div id="app" class="shell" hidden>
       <aside class="side" id="side" aria-label="Control centre navigation">
         <div class="brand">
-          <div class="brand-mark" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 20V4h6a5 5 0 0 1 0 10H7" /></svg>
-          </div>
-          <div class="brand-text"><b>Paynest</b><span>Control centre</span></div>
+          <div class="brand-mark" aria-hidden="true"></div>
+          <div class="brand-text"><b>Bizpole Pay</b><span>Control centre</span></div>
         </div>
         <nav class="nav" id="nav"></nav>
         <div class="side-foot">

@@ -85,7 +85,7 @@
 
   const allUsers = listPage({
     path: "users", title: "All users", roleSelect: true,
-    sub: "Everyone with a Paynest login: merchant team members and platform operators.",
+    sub: "Everyone with a Bizpole Pay login: merchant team members and platform operators.",
     chips: [["all", "All", {}], ["active", "Active", { status: "ACTIVE" }], ["locked", "Locked", { status: "LOCKED" }], ["disabled", "Disabled", { status: "DISABLED" }]],
     empty: ["No users yet", "Users appear here as people sign up or are added to a team."],
   });
@@ -114,7 +114,7 @@
     sub: "Most recent sign-in for each user, with failed attempts since their last successful sign-in.",
     chips: [["all", "All users", {}], ["locked", "Locked out now", { locked: "1" }]],
     cols: ["user", "last", "failed", "status", "orgs", "view"],
-    empty: ["No sign-ins yet", "Sign-ins appear here as people use Paynest."],
+    empty: ["No sign-ins yet", "Sign-ins appear here as people use Bizpole Pay."],
     note: "Open a user for their full sign-in history (one row per session, with IP and device). Failed sign-in attempts are counted but not individually recorded yet; that starts in phase 5.",
   });
 

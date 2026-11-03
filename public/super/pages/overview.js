@@ -12,7 +12,7 @@
   SA.pages.overview = {
     title: "Platform dashboard",
     async render(view, { isCurrent }) {
-      const head = ui.head("Platform dashboard", "Live figures across every organization on Paynest. Amounts in rupees, times in IST.", ui.rangePicker());
+      const head = ui.head("Platform dashboard", "Live figures across every organization on Bizpole Pay. Amounts in rupees, times in IST.", ui.rangePicker());
       view.innerHTML = head + `<div class="kpi-groups">${Array.from({ length: 4 }, () => ui.skelPanel(4, 22)).join("")}</div><div class="grid g2">${ui.skelPanel(3, 40)}${ui.skelPanel(3, 40)}</div>`;
       ui.bindRange(view);
       const rp = SA.rangeParams();
@@ -53,8 +53,8 @@
         ? `<div style="padding:10px 16px 0">${lg}</div><div class="panel-body"><div class="chart-box short"><canvas id="${id}" role="img" aria-label="${esc(title)}"></canvas></div></div>`
         : ui.empty("No payments in this period", "Choose a longer range or another mode."), { right: `<a href="#/analytics">All analytics</a>` });
       const charts = `<div class="grid g2">
-        ${chartPanel("Transaction volume", "o-vol", SA.chartLegend([[C.teal, "Successful volume"], [C.navy, "Payments"]]))}
-        ${chartPanel("Success and failure", "o-sf", SA.chartLegend([[C.ok, "Successful"], [C.bad, "Failed"], [C.slate, "Other"]]))}
+        ${chartPanel("Transaction volume", "o-vol", SA.chartLegend([[C.coral, "Successful volume"], [C.ink, "Payments"]]))}
+        ${chartPanel("Success and failure", "o-sf", SA.chartLegend([[C.ok, "Successful"], [C.bad, "Failed"], [C.graphite, "Other"]]))}
       </div>`;
 
       const recent = ui.panel("Latest payment transactions", SA.feeds.transactions(act.transactions), { right: `<a href="#/activity">System activity</a>` }) +

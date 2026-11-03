@@ -149,7 +149,7 @@
     const title = page ? page.title : item ? item.label : "Not found";
     const group = item ? item.group.label : page && page.group;
     $("#crumbs").innerHTML = `<span>Control centre</span>${group ? `<span class="sep">/</span><span>${esc(group)}</span>` : ""}<span class="sep">/</span><b>${esc(title)}</b>`;
-    document.title = `${title} · Paynest Control Centre`;
+    document.title = `${title} · Bizpole Pay Control Centre`;
     const view = $("#view");
     view.scrollTop = 0; window.scrollTo(0, 0);
     if (!page) {
@@ -173,7 +173,7 @@
     const c = $("#crumbs"), last = c.querySelector("b");
     if (last && parentHref) last.outerHTML = `<a href="${esc(parentHref)}">${esc(last.textContent)}</a>`;
     c.insertAdjacentHTML("beforeend", `<span class="sep">/</span><b>${esc(label)}</b>`);
-    document.title = `${label} · Paynest Control Centre`;
+    document.title = `${label} · Bizpole Pay Control Centre`;
   };
   SA.chart = (canvas, config) => {
     const c = new window.Chart(canvas, config);
@@ -449,16 +449,17 @@
   };
 
   // Chart.js defaults matched to the console.
-  SA.COLORS = { navy: "#1f3a5f", teal: "#0b6e6a", amber: "#c98a1b", slate: "#8a96a8", rose: "#b4475b", ok: "#1d7a45", bad: "#b42335", grid: "#edf0f4", ink: "#3a4658" };
+  // Bizpole Pay chart palette (docs/PAGE_BUILD_GUIDE.md): charcoal, coral, then graphite tint; status colours stay semantic.
+  SA.COLORS = { ink: "#211f24", coral: "#e65f55", yellow: "#f1c64b", graphite: "#8a858f", sand: "#cdb89a", ok: "#2f8f5b", bad: "#c8463c", grid: "#eeece7" };
   SA.chartDefaults = () => {
     if (!window.Chart) return;
     const C = window.Chart;
     C.defaults.font.family = getComputedStyle(document.body).getPropertyValue("--sans");
     C.defaults.font.size = 12;
-    C.defaults.color = "#667185";
+    C.defaults.color = "#6f6a66";
     C.defaults.borderColor = SA.COLORS.grid;
     C.defaults.plugins.legend.display = false;
-    C.defaults.plugins.tooltip.backgroundColor = "#0f1b2d";
+    C.defaults.plugins.tooltip.backgroundColor = "#211f24";
     C.defaults.plugins.tooltip.padding = 10;
     C.defaults.plugins.tooltip.cornerRadius = 4;
     C.defaults.plugins.tooltip.boxPadding = 4;

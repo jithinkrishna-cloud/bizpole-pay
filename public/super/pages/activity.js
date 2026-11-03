@@ -17,7 +17,7 @@
     providerFailures: (rows) => list(rows, (f) => li(`${esc(fmt.label(f.source))} ${ui.pill(f.processing)}`, f.date, `${ui.modeTag(f.mode)} ${orgName(f.org)}${f.error ? " · " + esc(f.error) : ""}`),
       "No provider failures", "Inbound PayU callbacks that fail processing or signature checks appear here. The callback receiver isn't connected yet, so none have been recorded."),
     reconExceptions: (rows) => list(rows, (x) => li(`${esc(x.entityType)} ${esc(x.field)}: ours ${esc(x.local ?? "missing")}, PayU ${esc(x.payu ?? "missing")}`, x.date, `${esc(fmt.label(x.kind))} ${ui.modeTag(x.mode)} ${orgName(x.org)}`),
-      "No open reconciliation exceptions", "Mismatches between Paynest and PayU appear here once reconciliation runs are scheduled."),
+      "No open reconciliation exceptions", "Mismatches between Bizpole Pay and PayU appear here once reconciliation runs are scheduled."),
     superAdminActions: (rows) => list(rows, (a) => li(`<span class="mono">${esc(a.action)}</span>${a.entity ? ` on ${esc(a.entity)}` : ""}`, a.date, esc(a.actor.name) + " · " + esc(a.actor.email)),
       "No Super Admin actions yet", "Every operator action, including exports, is written to the audit log and listed here."),
   };

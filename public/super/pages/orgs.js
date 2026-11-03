@@ -90,7 +90,7 @@
   });
   const allOrgs = listPage({
     path: "orgs", title: "All organizations", param: "group",
-    sub: "Every organization on Paynest. Open one to see its profile, users, payments and integrations.",
+    sub: "Every organization on Bizpole Pay. Open one to see its profile, users, payments and integrations.",
     chips: [["all", "All", ""], ["active", "Active", "active"], ["pending", "Pending", "pending"], ["verified", "Verified", "verified"], ["rejected", "Rejected", "rejected"], ["suspended", "Suspended", "suspended"]],
   });
 
@@ -224,14 +224,14 @@
       { label: "Default", render: (c) => (c.isDefault ? "Yes" : "") },
       { label: "Issued", render: (c) => when(c.issuedAt), cls: "nowrap" },
     ], i.credentials, empty("No PayU credentials", "Credentials are added in the organization's developer settings.")), { sub: "Keys are masked. Salts never leave the server." })
-    + ui.panel("Paynest API keys", ui.table([
+    + ui.panel("Bizpole Pay API keys", ui.table([
       { label: "Name", render: (k) => esc(k.name) },
       { label: "Key prefix", render: (k) => `<span class="mono">${esc(k.prefix)}</span>` },
       { label: "Mode", render: (k) => ui.modeTag(k.mode) },
       { label: "Last used", render: (k) => (k.lastUsedAt ? `<span title="${esc(fmt.dt(k.lastUsedAt))} IST">${esc(fmt.ago(k.lastUsedAt))}</span>` : '<span class="muted">Never</span>'), cls: "nowrap" },
       { label: "State", render: (k) => (k.revokedAt ? pill("Revoked", "bad") : pill("Active", "ok")) },
       { label: "Created", render: (k) => when(k.createdAt), cls: "nowrap" },
-    ], i.apiKeys, empty("No API keys", "The organization hasn't created a Paynest API key.")))
+    ], i.apiKeys, empty("No API keys", "The organization hasn't created a Bizpole Pay API key.")))
     + ui.panel("Webhook endpoints", ui.table([
       { label: "URL", render: (w) => `<span class="mono">${esc(w.url)}</span>`, cls: "ellip" },
       { label: "Mode", render: (w) => ui.modeTag(w.mode) },

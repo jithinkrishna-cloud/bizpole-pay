@@ -7,7 +7,7 @@
   let shellReady = false;
 
   const toLogin = () => location.replace(LOGIN);
-  const brand = `<div class="brand"><div class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 20V4h6a5 5 0 0 1 0 10H7"/></svg></div><div class="brand-text"><b>Paynest</b><span>Control centre</span></div></div>`;
+  const brand = `<div class="brand"><div class="brand-mark" aria-hidden="true"></div><div class="brand-text"><b>Bizpole Pay</b><span>Control centre</span></div></div>`;
   function gate(html) {
     $("#app").hidden = true;
     const g = $("#gate");
@@ -31,7 +31,7 @@
   }
 
   function showUnreachable() {
-    gate(`<h1>Can't reach Paynest</h1><p>The control centre couldn't load your session. Check your connection and try again.</p>
+    gate(`<h1>Can't reach Bizpole Pay</h1><p>The control centre couldn't load your session. Check your connection and try again.</p>
       <button type="button" class="btn primary" id="gate-retry" style="width:100%;justify-content:center">Try again</button>`);
     $("#gate-retry").addEventListener("click", () => location.reload());
   }
