@@ -3,7 +3,7 @@
 (() => {
   "use strict";
   const { $, esc } = SA;
-  const LOGIN = "/app.html#/login?next=super";
+  const LOGIN = "app.html#/login?next=super"; // relative: works at / (dev server, Vercel) and /public/ (Live Server)
   let shellReady = false;
 
   const toLogin = () => location.replace(LOGIN);
@@ -21,11 +21,11 @@
     gate(`<h1>No Super Admin access</h1>
       <p>You're signed in as ${esc(email)}, which isn't a platform operator account.</p>
       <div style="display:grid;gap:8px">
-        <a class="btn primary" href="/app.html" style="justify-content:center">Go to your dashboard</a>
+        <a class="btn primary" href="app.html" style="justify-content:center">Go to your dashboard</a>
         <button type="button" class="btn" id="gate-out" style="justify-content:center">Sign out and use another account</button>
       </div>`);
     $("#gate-out").addEventListener("click", async () => {
-      try { await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json" }, body: "{}" }); } catch {}
+      try { await fetch(SA.API_BASE + "/api/auth/logout", { method: "POST", credentials: SA.credentials, headers: { "content-type": "application/json" }, body: "{}" }); } catch {}
       toLogin();
     });
   }
@@ -40,10 +40,10 @@
   SA.signedOut = () => { SA.state.session = null; toLogin(); };
 
   async function boot() {
-    const res = await fetch("/api/super/session?mode=all", { credentials: "same-origin" });
+    const res = await fetch(SA.API_BASE + "/api/super/session?mode=all", { credentials: SA.credentials });
     if (res.status === 401) return toLogin();
     if (res.status === 403) {
-      const me = await fetch("/api/auth/me", { credentials: "same-origin" }).then((r) => r.json()).catch(() => null);
+      const me = await fetch(SA.API_BASE + "/api/auth/me", { credentials: SA.credentials }).then((r) => r.json()).catch(() => null);
       return showDenied(me && me.user ? me.user.email : "this account");
     }
     if (!res.ok) return showUnreachable();

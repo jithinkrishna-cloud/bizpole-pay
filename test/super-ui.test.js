@@ -55,7 +55,7 @@ test("one sign-in page: the merchant app only redirects Super Admins, and never 
   const fn = app.match(/function toControlCentre\(me\) \{([\s\S]*?)\n      \}/);
   assert.ok(fn, "toControlCentre() exists");
   assert.match(fn[1], /me\.platformRole !== "SUPER_ADMIN"\) return false/, "non-operators are never redirected");
-  assert.match(fn[1], /location\.replace\("\/super\.html"\)/, "fixed target, no open redirect");
+  assert.match(fn[1], /location\.replace\("super\.html"\)/, "fixed target (relative, so it works under /public/ too), no open redirect");
   assert.ok(/async function signedIn\(me, msg\) \{\s*if \(toControlCentre\(me\)\) return;/.test(app), "checked after every sign-in");
   assert.ok(/const me = await api\("\/auth\/me"[^\n]*\n\s*if \(toControlCentre\(me\)\) return;/.test(app), "checked when a session is restored");
   for (const f of jsFiles(path.join(pub, "pages"))) assert.ok(!/super\.html|\/super\//.test(fs.readFileSync(f, "utf8")), path.basename(f));
@@ -87,5 +87,14 @@ test("the control centre has no sign-in form of its own", () => {
   const files = [path.join(pub, "super.html"), ...jsFiles(path.join(pub, "super"))].map((f) => fs.readFileSync(f, "utf8")).join("\n");
   assert.ok(!/type="password"/.test(files), "no password field");
   assert.ok(!/\/auth\/login/.test(files), "never posts credentials");
-  assert.match(fs.readFileSync(path.join(pub, "super", "boot.js"), "utf8"), /const LOGIN = "\/app\.html#\/login\?next=super";/);
+  assert.match(fs.readFileSync(path.join(pub, "super", "boot.js"), "utf8"), /const LOGIN = "app\.html#\/login\?next=super";/);
+});
+
+test("on localhost the control centre calls the dev API like app.html does", () => {
+  const core = fs.readFileSync(path.join(pub, "super", "core.js"), "utf8");
+  assert.match(core, /const DEV_API_PORT = "8765";/);
+  assert.match(core, /fetch\(SA\.API_BASE \+ "\/api" \+ path/);
+  const boot = fs.readFileSync(path.join(pub, "super", "boot.js"), "utf8");
+  assert.ok(!/fetch\("\/api/.test(boot + core), "every fetch goes through SA.API_BASE");
+  assert.match(html, /connect-src 'self' http:\/\/127\.0\.0\.1:8765 http:\/\/localhost:8765;/);
 });

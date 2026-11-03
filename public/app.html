@@ -1595,7 +1595,7 @@
       function toControlCentre(me) {
         if (!me || me.platformRole !== "SUPER_ADMIN") return false;
         if (me.merchant && !/[?&]next=super\b/.test(location.hash)) return false;
-        location.replace("/super.html");
+        location.replace("super.html");
         return true;
       }
       // Signed in: load this mode's data, then open the dashboard.

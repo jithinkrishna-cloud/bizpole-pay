@@ -44,13 +44,18 @@
   SA.esc = esc; SA.fmt = fmt;
 
   // ── API ──
+  // Same rule as app.html: on localhost with any port other than the dev server (8765, e.g. VS Code Live Server),
+  // call the API on :8765. Deployed builds and the dev server itself use same-origin /api.
+  const DEV_API_PORT = "8765";
+  SA.API_BASE = /^(127.0.0.1|localhost)$/.test(location.hostname) && location.port !== DEV_API_PORT ? `${location.protocol}//${location.hostname}:${DEV_API_PORT}` : "";
+  SA.credentials = SA.API_BASE ? "include" : "same-origin";
   class ApiError extends Error { constructor(status, message) { super(message); this.status = status; } }
   SA.api = async function api(path, params = {}, { method = "GET", body, withMode = true } = {}) {
     const qs = new URLSearchParams();
     if (withMode) qs.set("mode", SA.state.mode);
     for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== null && v !== "") qs.set(k, v);
-    const res = await fetch("/api" + path + (qs.toString() ? "?" + qs : ""), {
-      method, credentials: "same-origin",
+    const res = await fetch(SA.API_BASE + "/api" + path + (qs.toString() ? "?" + qs : ""), {
+      method, credentials: SA.credentials,
       headers: body ? { "content-type": "application/json" } : {},
       body: body ? JSON.stringify(body) : undefined,
     });
