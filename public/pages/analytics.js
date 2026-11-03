@@ -9,7 +9,7 @@
   // Series order and previous-period colour come from the guide's chart palette.
   const SERIES = ['#211F24', '#E65F55', '#F1C64B', '#8A858F', '#CDB89A', '#F2A39C'], PREV_COLOR = '#B9B4AD';
   const BRAND = () => tok('--ink', SERIES[0]), PREV = () => PREV_COLOR;
-  const modeColors = () => Object.fromEntries([...new Set(MODES)].map((m, i) => [m, SERIES[i % SERIES.length]]));
+  const modeColors = (extra = []) => Object.fromEntries([...new Set([...MODES, ...extra])].map((m, i) => [m, SERIES[i % SERIES.length]]));
   const MODE_ORDER = [...new Set(MODES)];
   const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   const an = { range: '7d', compare: true };
@@ -29,7 +29,7 @@
   const sum = (rows, f = t => t.amount) => rows.reduce((a, t) => a + f(t), 0);
   const pct = (a, b) => b ? a / b * 100 : 0;
   const short = p => { const r = p / 100; return r >= 1e7 ? '₹' + (r / 1e7).toFixed(1) + 'Cr' : r >= 1e5 ? '₹' + (r / 1e5).toFixed(1) + 'L' : r >= 1e3 ? '₹' + (r / 1e3).toFixed(r >= 1e4 ? 0 : 1) + 'k' : '₹' + Math.round(r); };
-  const failReason = t => t.status === 'USER_CANCELLED' ? 'Cancelled by customer' : t.error;
+  const failReason = t => t.status === 'USER_CANCELLED' ? 'Cancelled by customer' : t.error || 'No reason reported';
 
   function metrics(rows){
     const s = rows.filter(ok), f = rows.filter(t => t.status === 'FAILURE');
@@ -151,10 +151,12 @@
 
     // Volume by mode, stacked per bucket.
     const stacks = bs.map(b => { const o = {}; within(rows, b.from, b.to).filter(ok).forEach(t => o[t.mode] = (o[t.mode] || 0) + t.amount); return o; });
-    const MC = modeColors(), byMode = groupBy(rows, t => t.mode), topVol = [...byMode].sort((a, b) => b.gmv - a.gmv)[0];
-    const presentModes = MODE_ORDER.filter(k => byMode.some(g => g.label === k));
+    const byMode = groupBy(rows, t => t.mode), topVol = [...byMode].sort((a, b) => b.gmv - a.gmv)[0];
+    // Known modes first in the usual order, then any other mode PayU reported (BNPL, QR, ...).
+    const presentModes = [...MODE_ORDER.filter(k => byMode.some(g => g.label === k && g.gmv)), ...byMode.filter(g => g.gmv && !MODE_ORDER.includes(g.label)).map(g => g.label)];
+    const MC = modeColors(presentModes);
     const volume = card('Volume by payment mode', 'Successful payment value, stacked by mode', stackedBars(labels, stacks, presentModes, MC),
-      legend(presentModes.map(k => [k, MC[k]])) + insight(`<b>${topVol.label}</b> brought in ${inr(topVol.gmv)}, ${Math.round(pct(topVol.gmv, m.gmv))}% of successful volume.`));
+      legend(presentModes.map(k => [esc(k), MC[k]])) + insight(!m.gmv ? 'No successful payments in this period yet.' : `<b>${esc(topVol.label)}</b> brought in ${inr(topVol.gmv)}, ${Math.round(pct(topVol.gmv, m.gmv))}% of successful volume.`));
 
     // Hour-of-day heatmap of attempts (weekday × hour).
     const grid = WEEKDAYS.map(() => Array(24).fill(0));
@@ -174,7 +176,7 @@
     const modeCard = card('Success rate by payment mode', 'Bar = success rate · marker = period average', rateBars(byMode, m.rate),
       legend([['At or above average', 'var(--ok)'], ['Below average', 'var(--warn)'], [`Average ${Math.round(m.rate)}%`, 'var(--ink)']]) +
       insight(best.rate === worst.rate ? `Every mode converts at ${Math.round(best.rate)}%.` : `<b>${worst.label}</b> success is ${Math.round(best.rate - worst.rate)} pts below ${best.label} (${Math.round(worst.rate)}% vs ${Math.round(best.rate)}%).`));
-    const byBank = groupBy(rows, t => t.bank === '—' ? 'UPI apps (VPA)' : `${t.bank} (${t.mode})`), wb = [...byBank].sort((a, b) => a.rate - b.rate)[0];
+    const byBank = groupBy(rows, t => t.bank === '—' ? (t.mode === 'UPI' ? 'UPI apps (VPA)' : `Not reported (${t.mode})`) : `${t.bank} (${t.mode})`), wb = [...byBank].sort((a, b) => a.rate - b.rate)[0];
     const bankCard = card('Success rate by bank / issuer', 'Issuing bank, wallet or UPI app', rateBars(byBank, m.rate),
       legend([['At or above average', 'var(--ok)'], ['Below average', 'var(--warn)'], [`Average ${Math.round(m.rate)}%`, 'var(--ink)']]) +
       insight(wb.rate < m.rate ? `<b>${wb.label}</b> is the weakest issuer at ${Math.round(wb.rate)}% — ${wb.n - wb.ok} of ${wb.n} attempts did not succeed.` : 'Every issuer is at or above the period average.'));
@@ -242,7 +244,7 @@
     const c = $('#ancmp'); if (c) c.onchange = () => { an.compare = c.checked; redraw(); };
     const dl = $('#andl'); if (dl) dl.onclick = downloadCsv;
     const a30 = $('#an30'); if (a30) a30.onclick = () => { an.range = '30d'; redraw(); };
-    const at = $('#antest'); if (at) at.onclick = () => { state.mode = 'test'; route(); toast('Switched to test mode'); };
+    const at = $('#antest'); if (at) at.onclick = () => { if (isLive() && $('#mode')) $('#mode').click(); }; // core toggle reloads test data
   };
   document.addEventListener('click', () => document.querySelectorAll('[id^="andd-"].open').forEach(m => m.classList.remove('open')));
 })();

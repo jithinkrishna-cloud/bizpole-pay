@@ -666,6 +666,7 @@ model CheckoutTheme {
   merchant     Merchant        @relation(fields: [merchantId], references: [id], onDelete: Cascade)
   mode         Mode
   logoKey      String?
+  logoData     String?         // data: URL (PNG/JPEG/WebP, ≤256px, ≤300 KB) until object storage exists
   primaryColor String          @default("#4b3bdb")
   displayName  String?
   methodOrder  PaymentMethod[]

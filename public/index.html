@@ -814,15 +814,25 @@ res.redirect(order.checkout_url);
   sw.onclick = () => { mode = mode === 'test' ? 'live' : 'test'; render(); };
   render();
 
-  // Demo form (prototype: validates and confirms, nothing is sent)
+  // Demo request form → POST /api/leads
   const form = document.getElementById('demo-form'), err = document.getElementById('f-err');
-  form.onsubmit = e => {
+  form.onsubmit = async e => {
     e.preventDefault();
     const bad = [...form.querySelectorAll('[required]')].find(f => !f.checkValidity());
     if (bad) {
       const name = form.querySelector(`label[for=${bad.id}]`).textContent.toLowerCase();
       err.textContent = bad.value ? `Enter a valid ${name}.` : `Enter your ${name}.`;
       err.style.color = 'var(--brand-hover)'; bad.focus(); return;
+    }
+    const btn = form.querySelector('button[type=submit]'); btn.disabled = true;
+    try {
+      // On a static dev server (e.g. Live Server :5500) the API is the Paynest dev server on :8765.
+      const base = /^(127\.0\.0\.1|localhost)$/.test(location.hostname) && location.port !== '8765' ? `${location.protocol}//${location.hostname}:8765` : '';
+      const res = await fetch(base + '/api/leads', { method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(Object.fromEntries(new FormData(form))) });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Could not send your request. Try again.');
+    } catch (x) {
+      err.textContent = x.message; err.style.color = 'var(--brand-hover)'; btn.disabled = false; return;
     }
     document.getElementById('done-name').textContent = form.elements.name.value.trim().split(' ')[0];
     form.style.display = 'none';

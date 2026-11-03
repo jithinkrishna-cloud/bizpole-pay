@@ -2,5 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "buildCommand": "",
-  "outputDirectory": "public"
+  "outputDirectory": "public",
+  "rewrites": [{ "source": "/api/:path*", "destination": "/api/index?route=:path*" }],
+  "functions": { "api/index.js": { "maxDuration": 30 } }
 }

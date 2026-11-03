@@ -24,28 +24,54 @@
     BUSINESS_DETAILS: [['What you need', ['Legal name as registered', 'GSTIN if you are registered (optional if you are below the GST threshold)', 'Registered address with PIN code']],
       ['Why we ask', 'Category and expected volume decide your pricing, risk checks and settlement limits. Your customers see the legal name on bank statements.']],
     BANK_ACCOUNT: [['What you need', ['A current or savings account in the business\'s or the proprietor\'s name', 'Account number and IFSC from a cheque or passbook']],
-      ['How the ₹1 check works', 'We credit ₹1 to the account and read back the account holder\'s name from the bank. It must match your PAN or legal business name. The ₹1 stays with you.']],
+      ['How the account is checked', 'During review ₹1 is credited to the account to read back the holder\'s name from the bank. It must match your PAN or legal business name. Automatic penny-drop isn\'t connected in Bizpole Pay yet, so this happens after you submit.']],
     WEBSITE_DETAILS: [['What you need', ['A live website or app where customers buy from you', 'Public pages for terms, refunds, privacy and contact', 'Prices shown in rupees']],
       ['Why we ask', 'Card networks and banks require these pages before they allow online payments. We check that each page loads and belongs to your domain.']],
     KYC_DOCUMENTS: [['What you need', ['Clear scans or photos (PDF, JPG or PNG, up to 5 MB each)', 'Masked Aadhaar only — the first 8 digits hidden']],
       ['Why we ask', 'Documents depend on your business type. They are shared only with our payment partner for verification under RBI KYC rules.']],
   };
-  const AREAS = [['pan', 'PAN verification', 'Checked against the Income Tax database'], ['docs', 'KYC documents', 'Reviewed by the risk team'], ['bank', 'Bank account', 'Verified by the ₹1 penny-drop'],
-    ['web', 'Website review', 'Policy pages, pricing and product checks'], ['esign', 'Agreement e-sign', 'Merchant agreement signed with Aadhaar OTP'], ['vkyc', 'Video KYC', 'A 3-minute video call with a verification agent']];
+  // Labels for PayU's per-area onboarding statuses (PayuOnboardingStatus.area); unknown areas are shown as-is.
+  const AREA_LABEL = { account: 'Account', kyc: 'KYC', pan_verification: 'PAN verification', document: 'KYC documents', bank: 'Bank account', website: 'Website review', agreement: 'Agreement e-sign', vkyc: 'Video KYC', settlement: 'Settlement' };
+  const STATUS_LABEL = { TEST_ONLY: 'Not started', ONBOARDING: 'In progress', SUBMITTED: 'Submitted', UNDER_REVIEW: 'Under review', ACTION_REQUIRED: 'Action needed', LIVE: 'Live', REJECTED: 'Rejected', SUSPENDED: 'Suspended', DEACTIVATED: 'Deactivated' };
+  const STEP_LABEL = { NOT_STARTED: ['', 'Not started'], IN_PROGRESS: ['warn', 'Draft saved'], SUBMITTED: ['brand', 'Submitted'], VERIFIED: ['ok', 'Verified'], REJECTED: ['bad', 'Rejected'] };
+  const EVENT_LABEL = { 'onboarding.step_draft': 'draft saved', 'onboarding.step_submitted': 'submitted' };
 
-  const ob = {
-    view: null, cur: null, err: {}, tried: {}, decl: false, submitted: null, approved: false, timeline: [], areas: null, vkycSlot: '',
-    d: {
-      pan: { pan: 'ABCPK1234F', name: 'Jithin Krishna K', entity: 'proprietorship', dob: '1992-04-18' },
-      biz: { legal: 'Bizpole Services', brand: 'Bizpole', cat: 'Professional services', sub: 'Consulting', gstin: '', addr: '2nd Floor, Thejaswini, Infopark Phase 1, Kakkanad', city: 'Kochi', st: 'Kerala', pin: '682042', volume: '₹1–5 lakh',
-        desc: 'Company registration, GST filing and compliance services for small businesses.' },
-      bank: { holder: '', type: 'Current', acct: '', acct2: '', ifsc: '', pd: null },
-      web: { url: '', app: '', pol: Object.fromEntries(POL.map(p => [p[0], { on: false, url: '' }])), check: null },
-      kyc: { files: {}, masked: false },
-    },
+  const blank = () => ({
+    pan: { pan: '', name: '', entity: '', dob: '' },
+    biz: { legal: '', brand: '', cat: '', sub: '', gstin: '', addr: '', city: '', st: '', pin: '', volume: '', desc: '' },
+    bank: { holder: '', type: 'Current', acct: '', acct2: '', ifsc: '' },
+    web: { url: '', app: '', pol: Object.fromEntries(POL.map(p => [p[0], { on: false, url: '' }])), check: null },
+    kyc: { files: {}, masked: false },
+  });
+  // srv = last GET /onboarding response (merchant status, saved PAN last 4, primary bank, PayU areas, timeline).
+  const ob = { view: null, cur: null, err: {}, tried: {}, decl: false, saving: false, mid: null, srv: null, d: blank() };
+  const EDITABLE = ['TEST_ONLY', 'ONBOARDING', 'ACTION_REQUIRED'];
+  const srv = () => ob.srv || { merchantStatus: 'TEST_ONLY', editable: true, pan: {}, steps: {}, bank: null, documents: [], payu: [], timeline: [] };
+  const locked_ = () => !srv().editable;
+  const submittedAt = () => { const e = srv().timeline.filter(t => t.action === 'onboarding.submitted').pop(); return e ? new Date(e.at) : null; };
+  const approved = () => srv().merchantStatus === 'LIVE';
+  const panSaved = () => !!(srv().pan && srv().pan.saved);
+  const bankSaved = () => srv().bank;
+  const keepBank = () => !!bankSaved() && ob.d.bank.ifsc === bankSaved().ifsc;
+
+  // Fill the form from what the server holds. Raw PAN and account numbers never come back, so those inputs stay empty.
+  function hydrate(r, keys){
+    ob.srv = r;
+    const st = r.steps, d = ob.d;
+    const want = k => !keys || keys.includes(k);
+    if (want('PAN_DETAILS')) { const p = st.PAN_DETAILS.data; d.pan = { pan: '', name: p.name || '', entity: p.entity || r.entity || '', dob: p.dob || '' }; }
+    if (want('BUSINESS_DETAILS')) d.biz = { ...blank().biz, ...st.BUSINESS_DETAILS.data };
+    if (want('BANK_ACCOUNT')) { const b = st.BANK_ACCOUNT.data; d.bank = { holder: b.holder || (r.bank && r.bank.holder) || '', type: b.type || 'Current', acct: '', acct2: '', ifsc: b.ifsc || (r.bank && r.bank.ifsc) || '' }; }
+    if (want('WEBSITE_DETAILS')) { const w = st.WEBSITE_DETAILS.data; d.web = { url: w.url || '', app: w.app || '', pol: { ...blank().web.pol, ...(w.pol || {}) }, check: null }; }
+    if (want('KYC_DOCUMENTS')) d.kyc = { files: {}, masked: !!st.KYC_DOCUMENTS.data.masked };
+  }
+  LOAD.onboarding = async () => {
+    const mid = state.merchant && state.merchant.id;
+    if (ob.srv && ob.mid === mid) return; // mode switches don't change onboarding; keep unsaved edits
+    const r = await api('/onboarding', { mode: false });
+    Object.assign(ob, { view: null, cur: null, err: {}, tried: {}, decl: false, mid, d: blank() });
+    hydrate(r);
   };
-  // Read-only snapshot for other Bizpole Pay pages (settings shows the KYC'd profile).
-  window.onboarding_profile = () => ({ ...JSON.parse(JSON.stringify(ob.d)), entityLabel: ent()[1], submitted: ob.submitted, approved: ob.approved });
 
   const get = p => p.split('.').reduce((o, k) => (o == null ? o : o[k]), ob.d);
   const set = (p, v) => { const ks = p.split('.'), last = ks.pop(); ks.reduce((o, k) => o[k], ob.d)[last] = v; };
@@ -58,12 +84,8 @@
   const allDone = () => doneCount() === STEPS.length;
   const mask = a => a ? '••••' + a.slice(-4) : '—';
   const bankName = ifsc => BANKS_IFSC[(ifsc || '').slice(0, 4)] || 'Bank';
-  const toks = s => (s || '').toUpperCase().replace(/[^A-Z ]/g, ' ').split(/\s+/).filter(Boolean).filter(t => !['PVT', 'LTD', 'PRIVATE', 'LIMITED', 'LLP', 'M', 'S'].includes(t));
-  function nameScore(a, b){
-    const A = toks(a), B = toks(b); if (!A.length || !B.length) return 0;
-    const hit = A.filter(t => B.some(u => u === t || (t.length === 1 && u[0] === t) || (u.length === 1 && t[0] === u))).length;
-    return Math.round(hit / Math.max(A.length, B.length) * 100);
-  }
+  // Last 4 of the account: what's typed now, else the saved account (when it's being kept).
+  const acctLast4 = () => ob.d.bank.acct ? ob.d.bank.acct.slice(-4) : keepBank() ? bankSaved().last4 : '';
 
   function docsFor(){
     const e = ob.d.pan.entity;
@@ -83,8 +105,8 @@
 
   /* ---- validation ---- */
   const V = {
-    'pan.pan': v => !v ? 'Enter your PAN.' : !/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(v) ? 'A PAN has 10 characters: 5 letters, 4 digits, then 1 letter (for example ABCPK1234F).'
-      : !ent()[2].includes(v[3]) ? `The 4th letter "${v[3]}" is used for PANs issued to ${PAN_TYPE[v[3]] || 'another holder type'}. A ${ent()[1].toLowerCase()} PAN has "${ent()[2].join('" or "')}" there.` : '',
+    'pan.pan': v => !v ? (panSaved() ? '' : 'Enter your PAN.') : !/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(v) ? 'A PAN has 10 characters: 5 letters, 4 digits, then 1 letter (for example ABCPK1234F).'
+      : ob.d.pan.entity && !ent()[2].includes(v[3]) ? `The 4th letter "${v[3]}" is used for PANs issued to ${PAN_TYPE[v[3]] || 'another holder type'}. A ${ent()[1].toLowerCase()} PAN has "${ent()[2].join('" or "')}" there.` : '',
     'pan.name': v => !v.trim() ? 'Enter the name exactly as printed on the PAN.' : !/^[A-Za-z][A-Za-z .'&-]{2,}$/.test(v.trim()) ? 'Use letters, spaces and . & \' - only (at least 3 characters).' : '',
     'pan.entity': v => v ? '' : 'Choose your business type.',
     'pan.dob': v => {
@@ -101,7 +123,10 @@
     'biz.gstin': v => {
       if (!v) return '';
       if (!/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(v)) return 'A GSTIN has 15 characters: 2-digit state code, the 10-character PAN, then 3 more (for example 32ABCPK1234F1Z5).';
-      if (v.slice(2, 12) !== ob.d.pan.pan) return `Characters 3–12 of a GSTIN are the PAN. This GSTIN has ${v.slice(2, 12)}, but your PAN is ${ob.d.pan.pan || 'not entered yet'}.`;
+      const pan = ob.d.pan.pan, last4 = srv().pan && srv().pan.last4;
+      if (pan) { if (v.slice(2, 12) !== pan) return `Characters 3–12 of a GSTIN are the PAN. This GSTIN has ${v.slice(2, 12)}, but your PAN is ${pan}.`; }
+      else if (!last4) return 'Save your PAN details first. Characters 3–12 of a GSTIN must be your PAN.';
+      else if (v.slice(8, 12) !== last4) return `Characters 3–12 of a GSTIN are the PAN, but this GSTIN doesn't match your saved PAN (ending ${last4}).`;
       return '';
     },
     'biz.desc': v => v.trim().length < 20 ? 'Describe what you sell in at least 20 characters.' : '',
@@ -111,11 +136,10 @@
     'biz.pin': v => !v ? 'Enter the PIN code.' : !/^[1-9][0-9]{5}$/.test(v) ? 'A PIN code has 6 digits and doesn\'t start with 0.' : '',
     'biz.volume': v => v ? '' : 'Choose your expected monthly volume.',
     'bank.holder': v => v.trim().length < 3 ? 'Enter the account holder name.' : '',
-    'bank.acct': v => !v ? 'Enter the account number.' : !/^\d{9,18}$/.test(v) ? 'Account numbers have 9 to 18 digits, with no spaces.' : '',
-    'bank.acct2': v => !v ? 'Re-enter the account number.' : v !== ob.d.bank.acct ? 'The account numbers don\'t match.' : '',
+    // A saved account can be kept without re-typing its number, as long as the IFSC is unchanged.
+    'bank.acct': v => !v ? (keepBank() ? '' : bankSaved() ? 'Enter the account number again to change the IFSC.' : 'Enter the account number.') : !/^\d{9,18}$/.test(v) ? 'Account numbers have 9 to 18 digits, with no spaces.' : '',
+    'bank.acct2': v => !ob.d.bank.acct && keepBank() ? '' : !v ? 'Re-enter the account number.' : v !== ob.d.bank.acct ? 'The account numbers don\'t match.' : '',
     'bank.ifsc': v => !v ? 'Enter the IFSC.' : !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(v) ? 'An IFSC has 11 characters: 4 letters, a zero, then 6 letters or digits (for example HDFC0001234).' : '',
-    'bank.pd': v => !v || v.status === 'running' ? 'Verify the account with the ₹1 penny-drop before you continue.' : v.status === 'failed' ? 'The bank couldn\'t verify this account. Check the account number and IFSC.'
-      : v.status === 'mismatch' ? 'The name at the bank doesn\'t match your PAN or business name. Use an account held in that name.' : '',
     'web.url': v => !v ? 'Enter your website URL.' : !isUrl(v) ? 'Enter the full address, for example https://yourbusiness.in' : '',
     'web.app': v => !v ? '' : !isUrl(v) ? 'Enter the full store link.' : !/(play\.google\.com|apps\.apple\.com)$/.test(host(v)) ? 'Use a Google Play or App Store link.' : '',
     'kyc.masked': v => !v && docsFor().some(d => d[0] === 'aadhaar') ? 'Confirm that the Aadhaar you uploaded is masked.' : '',
@@ -137,7 +161,7 @@
   const FIELDS = {
     PAN_DETAILS: () => ['pan.entity', 'pan.pan', 'pan.name', 'pan.dob'],
     BUSINESS_DETAILS: () => ['biz.legal', 'biz.cat', 'biz.sub', 'biz.gstin', 'biz.desc', 'biz.addr', 'biz.city', 'biz.st', 'biz.pin', 'biz.volume'],
-    BANK_ACCOUNT: () => ['bank.holder', 'bank.acct', 'bank.acct2', 'bank.ifsc', 'bank.pd'],
+    BANK_ACCOUNT: () => ['bank.holder', 'bank.acct', 'bank.acct2', 'bank.ifsc'],
     WEBSITE_DETAILS: () => ['web.url', 'web.app', ...POL.map(p => `web.pol.${p[0]}.url`)],
     KYC_DOCUMENTS: () => [...docsFor().map(d => `kyc.files.${d[0]}`), 'kyc.masked'],
   };
@@ -162,12 +186,12 @@
   const FORMS = {
     PAN_DETAILS: () => `<div class="ob-fg">
       ${fld('pan.entity', 'Business type', sel('pan.entity', ENT.map(e => [e[0], e[1]])), { hint: 'Decides which PAN and documents we ask for.' })}
-      ${fld('pan.pan', isPerson() ? 'PAN of the ' + (ob.d.pan.entity === 'individual' ? 'individual' : 'proprietor') : 'Business PAN', inp('pan.pan', 'maxlength="10" data-up autocomplete="off" placeholder="ABCPK1234F" class="mono-in"'),
-        { hint: `10 characters. The 4th letter must be ${ent()[2].join(' or ')} for a ${ent()[1].toLowerCase()}.` })}
+      ${fld('pan.pan', isPerson() ? 'PAN of the ' + (ob.d.pan.entity === 'individual' ? 'individual' : 'proprietor') : 'Business PAN', inp('pan.pan', `maxlength="10" data-up autocomplete="off" placeholder="${panSaved() ? 'Saved · ending ' + esc(srv().pan.last4) : 'ABCPK1234F'}" class="mono-in"`),
+        { hint: panSaved() ? `Saved PAN ends in ${esc(srv().pan.last4)}. Leave blank to keep it, or type a new one.` : ob.d.pan.entity ? `10 characters. The 4th letter must be ${ent()[2].join(' or ')} for a ${ent()[1].toLowerCase()}.` : '10 characters: 5 letters, 4 digits, 1 letter.' })}
       ${fld('pan.name', 'Name as on PAN', inp('pan.name', 'placeholder="Exactly as printed"'))}
       ${fld('pan.dob', isPerson() ? 'Date of birth' : 'Date of incorporation', inp('pan.dob', `type="date" max="${now.toISOString().slice(0, 10)}"`))}
     </div>
-    <div class="ob-note"><b>PAN check</b><span class="muted">We confirm the PAN, name and date with the Income Tax database when you submit. Nothing is shared with your customers.</span></div>`,
+    <div class="ob-note"><b>PAN check</b><span class="muted">Your PAN is stored encrypted; only the last 4 characters are shown back. Automatic verification with the Income Tax database isn't connected yet, so the PAN is checked during review.</span></div>`,
     BUSINESS_DETAILS: () => `<div class="ob-fg">
       ${fld('biz.legal', 'Legal business name', inp('biz.legal'), { hint: 'As registered. Shown on customers\' bank statements.' })}
       ${fld('biz.brand', 'Brand / display name', inp('biz.brand', 'placeholder="Shown on checkout"'), { opt: true })}
@@ -186,9 +210,10 @@
     BANK_ACCOUNT: () => `<div class="ob-fg">
       ${fld('bank.holder', 'Account holder name', inp('bank.holder', `placeholder="${esc(isPerson() ? ob.d.pan.name : ob.d.biz.legal)}"`), { hint: 'The business\'s or the proprietor\'s name, as the bank has it.' })}
       ${fld('bank.type', 'Account type', sel('bank.type', ['Current', 'Savings']))}
-      ${fld('bank.acct', 'Account number', inp('bank.acct', 'inputmode="numeric" maxlength="18" autocomplete="off" class="mono-in"'))}
+      ${fld('bank.acct', 'Account number', inp('bank.acct', `inputmode="numeric" maxlength="18" autocomplete="off" class="mono-in" ${bankSaved() ? `placeholder="Saved · ending ${esc(bankSaved().last4)}"` : ''}`),
+        bankSaved() ? { hint: 'Leave blank to keep the saved account, or type a new number.' } : {})}
       ${fld('bank.acct2', 'Re-enter account number', inp('bank.acct2', 'inputmode="numeric" maxlength="18" autocomplete="off" class="mono-in" onpaste="return false"'), { hint: 'Type it again; pasting is turned off.' })}
-      ${fld('bank.ifsc', 'IFSC', inp('bank.ifsc', 'maxlength="11" data-up placeholder="HDFC0001234" class="mono-in"'), { hint: 'Printed on your cheque book. The bank and branch are shown after verification.' })}
+      ${fld('bank.ifsc', 'IFSC', inp('bank.ifsc', 'maxlength="11" data-up placeholder="HDFC0001234" class="mono-in"'), { hint: 'Printed on your cheque book.' })}
     </div>
     <div id="ob-pd">${pdBox()}</div>`,
     WEBSITE_DETAILS: () => `<div class="ob-fg">
@@ -202,7 +227,8 @@
         ${errBox(`web.pol.${k}.url`)}</div>`; }).join('')}</div>
     <div id="ob-wc">${wcBox()}</div>`,
     KYC_DOCUMENTS: () => { const docs = docsFor();
-      return `<p class="muted" style="margin:0 0 12px">Documents for a <b style="color:var(--ink)">${ent()[1].toLowerCase()}</b>. Change the business type in <button class="linkish" data-goto="PAN_DETAILS">PAN details</button> if this is wrong.</p>
+      return `<div class="ob-banner" style="margin:0 0 14px"><b>Document upload isn't available yet.</b> No secure file storage is connected to Bizpole Pay, so KYC documents can't be stored and this step can't be completed for now. Your other steps are saved; you can come back to this one later.</div>
+      <p class="muted" style="margin:0 0 12px">Documents for a <b style="color:var(--ink)">${ent()[1].toLowerCase()}</b>. Change the business type in <button class="linkish" data-goto="PAN_DETAILS">PAN details</button> if this is wrong.</p>
       <div class="ob-docs">${docs.map(([k, l, h, req]) => { const f = ob.d.kyc.files[k], e = ob.err[`kyc.files.${k}`];
         return `<div class="ob-doc ob-f ${e ? 'has-err' : ''} ${f ? 'has-file' : ''}" data-p="kyc.files.${k}"><div class="between" style="align-items:flex-start"><div><b>${l}</b>${req ? '' : ' <span class="muted">(optional)</span>'}<div class="muted" style="font-size:12.5px">${h}</div></div>${f ? '<span class="pill ok">Uploaded</span>' : req ? '<span class="pill">Required</span>' : ''}</div>
           ${f ? `<div class="ob-file"><span class="ob-fic">${/\.pdf$/i.test(f.name) ? 'PDF' : 'IMG'}</span><div style="flex:1;min-width:0"><div class="ob-fname">${esc(f.name)}</div><div class="muted" style="font-size:12px">${fsize(f.size)}</div></div>
@@ -210,147 +236,140 @@
             : `<label class="ob-up" data-dropdoc="${k}"><input type="file" hidden accept=".pdf,.jpg,.jpeg,.png" data-doc="${k}"><span style="font-size:20px"><i data-icon=upload class=li></i></span><span><b>Drop a file or click to choose</b><br><span class="muted" style="font-size:12px">PDF, JPG or PNG · max 5 MB</span></span></label>`}
           ${errBox(`kyc.files.${k}`)}</div>`; }).join('')}</div>
       ${docs.some(d => d[0] === 'aadhaar') ? `<div class="ob-f ob-mask ${ob.err['kyc.masked'] ? 'has-err' : ''}" data-p="kyc.masked"><div><b>Masked Aadhaar only.</b> <span class="muted">Hide the first 8 digits so only the last 4 show (XXXX XXXX 1234). Download a masked copy from the UIDAI website. We reject unmasked Aadhaar and delete the file.</span></div>
-        <label class="ck"><input type="checkbox" data-f="kyc.masked" ${ob.d.kyc.masked ? 'checked' : ''}>The Aadhaar I uploaded is masked</label>${errBox('kyc.masked')}</div>` : ''}
-      <button class="btn sm" id="ob-sample" style="margin-top:12px">Fill with sample files (demo)</button>`; },
+        <label class="ck"><input type="checkbox" data-f="kyc.masked" ${ob.d.kyc.masked ? 'checked' : ''}>The Aadhaar I uploaded is masked</label>${errBox('kyc.masked')}</div>` : ''}`; },
   };
 
+  // Penny-drop isn't connected: show what's saved and say so, rather than a simulated ₹1 credit.
   function pdBox(){
-    const pd = ob.d.bank.pd, e = ob.err['bank.pd'];
-    let body;
-    if (!pd) body = `<div class="between" style="flex-wrap:wrap"><div><b>Verify with a ₹1 penny-drop</b><div class="muted" style="font-size:13px">We send ₹1 to this account and show you the name the bank returns.</div></div><button class="btn primary" id="ob-pdgo" style="flex:none">Verify account · ₹1</button></div>`;
-    else if (pd.status === 'running') body = `<div class="row" style="gap:12px"><span class="ob-spin"></span><div style="flex:1"><b>Sending ₹1 to ${bankName(ob.d.bank.ifsc)} ${mask(ob.d.bank.acct)}…</b><div class="muted" style="font-size:13px">This usually takes a few seconds.</div></div></div>`;
-    else if (pd.status === 'failed') body = `<div class="between" style="flex-wrap:wrap"><div><b style="color:var(--bad)"><i data-icon=x class=li></i> Verification failed</b><div class="muted" style="font-size:13px">${pd.reason} · Ref ${pd.ref}</div></div><button class="btn" id="ob-pdgo" style="flex:none">Try again</button></div>`;
-    else body = `<div class="between" style="flex-wrap:wrap;align-items:flex-start"><div><b style="color:${pd.status === 'ok' ? 'var(--ok)' : 'var(--bad)'}">${pd.status === 'ok' ? '✓ Account verified' : '<i data-icon=triangle-alert class=li></i> Name mismatch'}</b>
-        <dl class="kv ob-kv"><dt>Name at bank</dt><dd><b>${esc(pd.nameAtBank)}</b></dd><dt>Bank</dt><dd>${pd.bank} · ${pd.branch}</dd><dt>Account</dt><dd class="mono">${mask(ob.d.bank.acct)} · ${ob.d.bank.ifsc}</dd>
-        <dt>Match</dt><dd>${pd.status === 'ok' ? `<span class="pill ok">${pd.score}% match</span> with ${pd.against}` : `<span class="pill bad">${pd.score}% match</span> best match was ${pd.against}`}</dd><dt>Reference</dt><dd class="mono">${pd.ref} · ₹1.00 credited</dd></dl></div>
-        <button class="btn sm" id="ob-pdgo" style="flex:none">Verify again</button></div>`;
-    return `<div class="ob-pd ob-f ${pd && pd.status !== 'running' ? 'pd-' + pd.status : ''} ${e ? 'has-err' : ''}" data-p="bank.pd">${body}${errBox('bank.pd')}</div>`;
+    const b = bankSaved();
+    if (b && b.verified) return `<div class="ob-pd pd-ok"><b style="color:var(--ok)">✓ Account verified</b><dl class="kv ob-kv"><dt>Name at bank</dt><dd><b>${esc(b.nameAtBank || '—')}</b></dd><dt>Account</dt><dd class="mono">${esc(b.bankName || bankName(b.ifsc))} ••••${esc(b.last4)} · ${esc(b.ifsc)}</dd></dl></div>`;
+    return `<div class="ob-pd"><b>₹1 penny-drop verification</b><div class="muted" style="font-size:13px;margin-top:2px">Automatic penny-drop isn't connected yet. When you save, the account number is stored encrypted and the account is verified during review.
+      ${b ? `<br>Saved: <span class="mono">${esc(b.bankName || bankName(b.ifsc))} ••••${esc(b.last4)} · ${esc(b.ifsc)}</span> · <span class="pill warn">Not verified yet</span>` : ''}</div></div>`;
   }
-  function runPennyDrop(){
-    const ps = ['bank.holder', 'bank.acct', 'bank.acct2', 'bank.ifsc'], bad = validate('BANK_ACCOUNT', ps);
-    ps.forEach(paint);
-    if (bad.length) { focusErr(); return toast('Fix the highlighted fields first'); }
-    ob.d.bank.pd = { status: 'running' }; delete ob.err['bank.pd']; $('#ob-pd').innerHTML = pdBox();
-    setTimeout(() => {
-      const b = ob.d.bank, ref = 'PD' + Date.now().toString().slice(-8);
-      if (/0000$/.test(b.acct)) b.pd = { status: 'failed', reason: 'Account not found or closed at the bank', ref };
-      else {
-        const nameAtBank = b.holder.trim().toUpperCase().replace(/\s+/g, ' ');
-        const cands = [[nameScore(nameAtBank, ob.d.pan.name), 'the name on your PAN'], [nameScore(nameAtBank, ob.d.biz.legal), 'your legal business name']].sort((x, y) => y[0] - x[0]);
-        b.pd = { status: cands[0][0] >= 75 ? 'ok' : 'mismatch', nameAtBank, score: cands[0][0], against: cands[0][1], bank: bankName(b.ifsc), branch: 'Kakkanad, Kochi', ref, at: new Date() };
-      }
-      if ($('#ob-pd')) { $('#ob-pd').innerHTML = pdBox(); bindPd(); }
-      toast(b.pd.status === 'ok' ? '₹1 credited · name matched' : b.pd.status === 'mismatch' ? 'Name at bank doesn\'t match' : 'Bank couldn\'t verify the account');
-    }, 1300);
+  function runSiteCheckView(c){
+    const ok = c.rows.filter(r => r[1] === 'ok').length;
+    return `<div class="ob-pd ${ok === c.rows.length ? 'pd-ok' : 'pd-mismatch'}"><div class="between"><b>${ok === c.rows.length ? '✓ All checks passed' : `${ok} of ${c.rows.length} checks passed`}</b><span class="row" style="flex:none;gap:8px"><span class="muted" style="font-size:12.5px;flex:none;min-width:0">Checked ${c.at.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</span><button class="btn sm" id="ob-wcgo" style="flex:none;min-width:0">Check again</button></span></div>
+      <table class="ob-wct"><tbody>${c.rows.map(([l, s, n]) => `<tr><td style="width:26px">${s === 'ok' ? '<span style="color:var(--ok)">✓</span>' : s === 'warn' ? '<span style="color:var(--warn)">!</span>' : '<span style="color:var(--bad)"><i data-icon=x class=li></i></span>'}</td><td style="width:280px"><b>${esc(l)}</b></td><td class="muted">${esc(n)}</td></tr>`).join('')}</tbody></table></div>`;
   }
   function wcBox(){
     const c = ob.d.web.check;
     if (!c) return `<div class="ob-pd"><div class="between" style="flex-wrap:wrap"><div><b>Check your website</b><div class="muted" style="font-size:13px">We open each page you listed and confirm it loads on your domain.</div></div><button class="btn" id="ob-wcgo" style="flex:none">Check website</button></div></div>`;
     if (c.running) return `<div class="ob-pd"><div class="row"><span class="ob-spin"></span><b style="flex:1">Checking ${esc(host(ob.d.web.url))}…</b></div></div>`;
-    const ok = c.rows.filter(r => r[1] === 'ok').length;
-    return `<div class="ob-pd ${ok === c.rows.length ? 'pd-ok' : 'pd-mismatch'}"><div class="between"><b>${ok === c.rows.length ? '✓ All checks passed' : `${ok} of ${c.rows.length} checks passed`}</b><span class="row" style="flex:none;gap:8px"><span class="muted" style="font-size:12.5px;flex:none;min-width:0">Checked ${c.at.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</span><button class="btn sm" id="ob-wcgo" style="flex:none;min-width:0">Check again</button></span></div>
-      <table class="ob-wct"><tbody>${c.rows.map(([l, s, n]) => `<tr><td style="width:26px">${s === 'ok' ? '<span style="color:var(--ok)">✓</span>' : s === 'warn' ? '<span style="color:var(--warn)">!</span>' : '<span style="color:var(--bad)"><i data-icon=x class=li></i></span>'}</td><td style="width:280px"><b>${l}</b></td><td class="muted">${esc(n)}</td></tr>`).join('')}</tbody></table></div>`;
+    return runSiteCheckView(c);
   }
-  function runSiteCheck(){
+  // Our server opens each page and reports the real HTTP result.
+  async function runSiteCheck(){
     const bad = validate('WEBSITE_DETAILS', ['web.url']); paint('web.url');
     if (bad.length) { focusErr(); return toast('Enter your website URL first'); }
-    ob.d.web.check = { running: true }; $('#ob-wc').innerHTML = wcBox();
-    setTimeout(() => {
-      const w = ob.d.web, site = host(w.url), rows = [];
-      rows.push(['Site reachable', /^https:/.test(w.url) ? 'ok' : 'warn', /^https:/.test(w.url) ? `200 OK · valid SSL certificate for ${site}` : 'Loads over http only. Turn on HTTPS before going live.']);
-      POL.forEach(([k, l, req]) => { const p = w.pol[k];
-        if (!p.on || !p.url) { if (req) rows.push([l, 'bad', 'Not linked from your site']); return; }
-        rows.push([l, host(p.url) === site ? 'ok' : 'bad', host(p.url) === site ? `Found at ${p.url.replace(/^https?:\/\//, '')}` : `On ${host(p.url) || 'an invalid URL'}, not ${site}`]); });
-      if (w.app) rows.push(['App listing', isUrl(w.app) ? 'ok' : 'bad', isUrl(w.app) ? 'Store page found' : 'Link didn\'t open']);
-      w.check = { rows, at: new Date() };
-      if ($('#ob-wc')) { $('#ob-wc').innerHTML = wcBox(); bindWc(); }
-    }, 1100);
+    const w = ob.d.web;
+    w.check = { running: true }; $('#ob-wc').innerHTML = wcBox();
+    try {
+      const r = await api('/onboarding/website/check', { method: 'POST', mode: false, body: { url: w.url, app: w.app, pol: w.pol } });
+      w.check = { rows: r.rows, at: new Date(r.at) };
+    } catch (e) { w.check = null; apiFail(e); }
+    if ($('#ob-wc')) { $('#ob-wc').innerHTML = wcBox(); bindWc(); }
   }
 
   /* ---- views ---- */
+  const canEdit = () => !locked_() && ['OWNER', 'ADMIN'].includes(state.role);
+  const rawOf = k => state.onboardingRaw[k] || 'NOT_STARTED';
   function rail(){
-    const done = doneCount(), pct = Math.round(done / STEPS.length * 100);
+    const done = doneCount(), pct = Math.round(done / STEPS.length * 100), sub = submittedAt();
     const item = (k, n, t, d, cls, badge) => `<div class="step ${cls}" data-s="${k}" role="button" tabindex="0"><span class="n">${badge || n}</span><div style="min-width:0"><b>${t}</b><div class="muted" style="font-size:12px">${d}</div></div></div>`;
     const stepCls = k => `${state.onboarding[k] === 'done' ? 'done' : ''} ${ob.view === 'step' && ob.cur === k ? 'cur' : ''}`;
+    const stepSub = (k, d) => rawOf(k) === 'VERIFIED' ? 'Verified' : rawOf(k) === 'SUBMITTED' ? 'Submitted' : rawOf(k) === 'REJECTED' ? 'Needs changes' : rawOf(k) === 'IN_PROGRESS' ? 'Draft saved' : ob.view === 'step' && ob.cur === k ? 'In progress' : d.split(',')[0];
     return `<div class="card ob-rail"><div class="between"><b>Your progress</b><b style="color:${pct === 100 ? 'var(--ok)' : 'var(--brand)'}">${pct}%</b></div>
       <div class="prog"><i style="width:${pct}%"></i></div><p class="muted" style="font-size:12.5px;margin:-4px 0 10px">${done} of ${STEPS.length} steps complete</p>
-      <div class="steps">${STEPS.map(([k, t, d], i) => item(k, i + 1, t, state.onboarding[k] === 'done' ? 'Completed' : ob.view === 'step' && ob.cur === k ? 'In progress' : d.split(',')[0], stepCls(k), state.onboarding[k] === 'done' ? '✓' : '')).join('')}
-        ${item('review', 6, 'Review & submit', ob.submitted ? 'Submitted ' + fmtDate(ob.submitted) : allDone() ? 'Ready to submit' : 'Finish all steps first', `${ob.view === 'review' ? 'cur' : ''} ${ob.submitted ? 'done' : ''}`, ob.submitted ? '✓' : '')}
-        ${ob.submitted ? item('status', 7, 'Application status', ob.approved ? 'Approved · live' : 'Under review', `${ob.view === 'status' ? 'cur' : ''} ${ob.approved ? 'done' : ''}`, ob.approved ? '✓' : '◷') : ''}</div>
-      <div class="ob-help"><b>Need help?</b><div class="muted" style="font-size:12.5px">Your progress is saved as you go. Write to <span class="mono">onboarding@bizpolepay.example</span> or call 1800-000-0000 (Mon–Sat, 9–7).</div></div></div>`;
+      <div class="steps">${STEPS.map(([k, t, d], i) => item(k, i + 1, t, stepSub(k, d), stepCls(k), state.onboarding[k] === 'done' ? '✓' : '')).join('')}
+        ${item('review', 6, 'Review & submit', locked_() ? 'Submitted' + (sub ? ' ' + fmtDate(sub) : '') : allDone() ? 'Ready to submit' : 'Finish all steps first', `${ob.view === 'review' ? 'cur' : ''} ${locked_() ? 'done' : ''}`, locked_() ? '✓' : '')}
+        ${locked_() ? item('status', 7, 'Application status', STATUS_LABEL[srv().merchantStatus] || srv().merchantStatus, `${ob.view === 'status' ? 'cur' : ''} ${approved() ? 'done' : ''}`, approved() ? '✓' : '◷') : ''}</div>
+      <div class="ob-help"><b>Need help?</b><div class="muted" style="font-size:12.5px">Your progress is saved to your account as you go, so you can leave and come back any time.</div></div></div>`;
+  }
+  function stepPill(k, nErr){
+    const r = rawOf(k);
+    if (r === 'VERIFIED') return '<span class="pill ok">✓ Verified</span>';
+    if (nErr) return `<span class="pill bad">${nErr} to fix</span>`;
+    if (r === 'SUBMITTED') return '<span class="pill ok">✓ Submitted</span>';
+    if (r === 'REJECTED') return '<span class="pill bad">Needs changes</span>';
+    if (r === 'IN_PROGRESS') return '<span class="pill warn">Draft saved</span>';
+    return '<span class="pill">Not started</span>';
   }
   function stepView(){
-    const k = ob.cur, i = STEPS.findIndex(s => s[0] === k), [, t, d] = STEPS[i], done = state.onboarding[k] === 'done';
-    const nErr = FIELDS[k]().filter(p => ob.err[p]).length, ro = !!ob.submitted, help = STEP_HELP[k];
+    const k = ob.cur, i = STEPS.findIndex(s => s[0] === k), [, t, d] = STEPS[i], isKyc = k === 'KYC_DOCUMENTS';
+    const nErr = FIELDS[k]().filter(p => ob.err[p]).length, ro = !canEdit(), help = STEP_HELP[k], remarks = (srv().steps[k] || {}).remarks;
     return `<div class="card ob-main"><div class="between" style="align-items:flex-start"><div><div class="ob-kicker">STEP ${i + 1} OF ${STEPS.length}</div><h2 class="ob-h2">${t}</h2><p class="muted" style="margin:2px 0 0">${d}.</p></div>
-        ${done ? '<span class="pill ok">✓ Completed</span>' : nErr ? `<span class="pill bad">${nErr} to fix</span>` : '<span class="pill warn">In progress</span>'}</div>
-      ${ro ? `<div class="ob-banner">Your application is under review, so these details are locked. Write to onboarding@bizpolepay.example to change them.</div>` : ''}
+        ${stepPill(k, nErr)}</div>
+      ${locked_() ? `<div class="ob-banner">Your application has been submitted, so these details are locked. Contact Bizpole Pay support to change them.</div>`
+        : ro ? `<div class="ob-banner">Only the account owner or an admin can fill in onboarding. You can view what's been saved.</div>` : ''}
+      ${remarks ? `<div class="notice bad" style="margin:14px 0 0"><b>Reviewer note:</b> ${esc(remarks)}</div>` : ''}
       ${nErr && ob.tried[k] ? `<div class="notice bad" style="margin:14px 0 0">Fix ${nErr} field${nErr > 1 ? 's' : ''} highlighted below to continue.</div>` : ''}
       <fieldset class="ob-fs" ${ro ? 'disabled' : ''}>${FORMS[k]()}</fieldset>
       <div class="ob-actions">${i ? '<button class="btn" id="ob-back"><i data-icon=chevron-left class=li></i> Back</button>' : '<span></span>'}<span style="flex:1"></span>
-        ${ro ? `<button class="btn primary" data-s="status">View application status</button>` : `<button class="btn" id="ob-draft">Save draft</button><button class="btn primary" id="ob-next">${i === STEPS.length - 1 ? 'Save & review' : 'Save & continue <i data-icon=chevron-right class=li></i>'}</button>`}</div></div>
+        ${locked_() ? `<button class="btn primary" data-s="status">View application status</button>`
+          : ro ? (i < STEPS.length - 1 ? `<button class="btn" data-goto="${STEPS[i + 1][0]}">Next <i data-icon=chevron-right class=li></i></button>` : '<button class="btn" data-s="review">Review</button>')
+          : `<button class="btn" id="ob-draft">Save draft</button><button class="btn primary" id="ob-next">${isKyc ? 'Save draft & review' : i === STEPS.length - 1 ? 'Save & review' : 'Save & continue <i data-icon=chevron-right class=li></i>'}</button>`}</div></div>
     <div class="ob-side"><div class="card"><h3>${help[0][0]}</h3><ul class="ob-ul">${help[0][1].map(x => `<li>${x}</li>`).join('')}</ul></div>
       <div class="card" style="flex:1"><h3>${help[1][0]}</h3><p class="muted" style="margin:0;font-size:13.5px">${help[1][1]}</p>
-        <div class="ob-sec"><span><i data-icon=lock class=li></i></span><span class="muted">Details are encrypted and shared only with our payment partner, PayU, for verification.</span></div></div></div>`;
+        <div class="ob-sec"><span><i data-icon=lock class=li></i></span><span class="muted">PAN and account numbers are stored encrypted. Details are shared only with our payment partner, PayU, for verification.</span></div></div></div>`;
   }
   function summary(k){
-    const d = ob.d, rows = {
-      PAN_DETAILS: [['Business type', ent()[1]], ['PAN', `<span class="mono">${esc(d.pan.pan)}</span>`], ['Name as on PAN', esc(d.pan.name)], [isPerson() ? 'Date of birth' : 'Incorporated', d.pan.dob ? new Date(d.pan.dob).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—']],
-      BUSINESS_DETAILS: [['Legal name', esc(d.biz.legal)], ['Category', `${esc(d.biz.cat)} <i data-icon=chevron-right class=li></i> ${esc(d.biz.sub || '—')}`], ['GSTIN', d.biz.gstin ? `<span class="mono">${d.biz.gstin}</span>` : '<span class="muted">Not provided</span>'],
-        ['Address', `${esc(d.biz.addr)}, ${esc(d.biz.city)}, ${esc(d.biz.st)} ${esc(d.biz.pin)}`], ['Monthly volume', esc(d.biz.volume)]],
-      BANK_ACCOUNT: [['Account holder', esc(d.bank.holder || '—')], ['Account', `<span class="mono">${mask(d.bank.acct)}</span> · ${d.bank.type}`], ['IFSC', `<span class="mono">${d.bank.ifsc || '—'}</span>`],
-        ['Penny-drop', d.bank.pd && d.bank.pd.status === 'ok' ? `<span class="pill ok">✓ ${d.bank.pd.score}% match</span> ${esc(d.bank.pd.nameAtBank)}` : '<span class="pill warn">Not verified</span>']],
+    const d = ob.d, last4 = d.pan.pan ? d.pan.pan.slice(-4) : panSaved() ? srv().pan.last4 : '', a4 = acctLast4(), b = bankSaved();
+    const rows = {
+      PAN_DETAILS: [['Business type', d.pan.entity ? ent()[1] : '—'], ['PAN', last4 ? `<span class="mono">••••••${esc(last4)}</span>` : '—'], ['Name as on PAN', esc(d.pan.name || '—')], [isPerson() ? 'Date of birth' : 'Incorporated', d.pan.dob ? new Date(d.pan.dob).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—']],
+      BUSINESS_DETAILS: [['Legal name', esc(d.biz.legal || '—')], ['Category', d.biz.cat ? `${esc(d.biz.cat)} <i data-icon=chevron-right class=li></i> ${esc(d.biz.sub || '—')}` : '—'], ['GSTIN', d.biz.gstin ? `<span class="mono">${esc(d.biz.gstin)}</span>` : '<span class="muted">Not provided</span>'],
+        ['Address', d.biz.addr ? `${esc(d.biz.addr)}, ${esc(d.biz.city)}, ${esc(d.biz.st)} ${esc(d.biz.pin)}` : '—'], ['Monthly volume', esc(d.biz.volume || '—')]],
+      BANK_ACCOUNT: [['Account holder', esc(d.bank.holder || '—')], ['Account', a4 ? `<span class="mono">••••${esc(a4)}</span> · ${esc(d.bank.type)}` : '—'], ['IFSC', `<span class="mono">${esc(d.bank.ifsc || '—')}</span>`],
+        ['Penny-drop', b && b.verified ? `<span class="pill ok">✓ Verified</span> ${esc(b.nameAtBank || '')}` : '<span class="pill warn">Not verified yet</span>']],
       WEBSITE_DETAILS: [['Website', esc(d.web.url || '—')], ['App', esc(d.web.app || 'None')], ['Policy pages', `${POL.filter(p => d.web.pol[p[0]].on).length} of ${POL.length} linked`],
         ['Site check', d.web.check && d.web.check.rows ? `${d.web.check.rows.filter(r => r[1] === 'ok').length} of ${d.web.check.rows.length} passed` : '<span class="muted">Not run</span>']],
-      KYC_DOCUMENTS: docsFor().map(([dk, l, , req]) => [l, d.kyc.files[dk] ? `✓ ${esc(d.kyc.files[dk].name)} <span class="muted">(${fsize(d.kyc.files[dk].size)})</span>` : req ? '<span style="color:var(--bad)">Missing</span>' : '<span class="muted">Not provided</span>']),
+      KYC_DOCUMENTS: docsFor().map(([, l, , req]) => [l, req ? '<span style="color:var(--bad)">Missing · upload not available yet</span>' : '<span class="muted">Not provided</span>']),
     }[k];
-    return `<dl class="kv ob-kv">${rows.map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join('')}</dl>`;
+    return `<dl class="kv ob-kv">${rows.map(([a, v]) => `<dt>${a}</dt><dd>${v}</dd>`).join('')}</dl>`;
   }
   function reviewView(){
-    const missing = STEPS.filter(([k]) => state.onboarding[k] !== 'done');
+    const missing = STEPS.filter(([k]) => state.onboarding[k] !== 'done'), done = locked_(), can = canEdit();
     const card = ([k, t], i) => `<div class="card ob-rv ${k === 'KYC_DOCUMENTS' ? 's2' : ''}"><div class="between" style="margin-bottom:6px"><h3 style="margin:0">${i + 1}. ${t}</h3><span class="row" style="flex:none;gap:10px">
-      ${state.onboarding[k] === 'done' ? '<span class="pill ok" style="flex:none;min-width:0">✓ Done</span>' : '<span class="pill bad" style="flex:none;min-width:0">Incomplete</span>'}${ob.submitted ? '' : `<button class="linkish" style="flex:none;min-width:0" data-goto="${k}">Edit</button>`}</span></div>${summary(k)}</div>`;
+      ${state.onboarding[k] === 'done' ? '<span class="pill ok" style="flex:none;min-width:0">✓ Done</span>' : '<span class="pill bad" style="flex:none;min-width:0">Incomplete</span>'}${done ? '' : `<button class="linkish" style="flex:none;min-width:0" data-goto="${k}">${can ? 'Edit' : 'View'}</button>`}</span></div>${summary(k)}</div>`;
     return `<div class="ob-main ob-wide"><div class="card"><div class="between" style="flex-wrap:wrap"><div><div class="ob-kicker">STEP 6 OF 6</div><h2 class="ob-h2">Review & submit</h2>
-        <p class="muted" style="margin:2px 0 0">Check everything once more. After you submit, details are locked while our payment partner reviews them.</p></div>
-        ${missing.length ? `<span class="pill bad">${missing.length} step${missing.length > 1 ? 's' : ''} incomplete</span>` : '<span class="pill ok">Ready to submit</span>'}</div>
-        ${missing.length ? `<div class="notice bad">Finish ${missing.map(([k, t]) => `<button class="linkish" data-goto="${k}" style="color:var(--bad);text-decoration:underline">${t}</button>`).join(', ')} before you submit.</div>` : ''}</div>
+        <p class="muted" style="margin:2px 0 0">Check everything once more. After you submit, details are locked while they're reviewed.</p></div>
+        ${done ? '<span class="pill ok">Submitted</span>' : missing.length ? `<span class="pill bad">${missing.length} step${missing.length > 1 ? 's' : ''} incomplete</span>` : '<span class="pill ok">Ready to submit</span>'}</div>
+        ${!done && missing.length ? `<div class="notice bad">Finish ${missing.map(([k, t]) => `<button class="linkish" data-goto="${k}" style="color:var(--bad);text-decoration:underline">${t}</button>`).join(', ')} before you submit.${missing.some(([k]) => k === 'KYC_DOCUMENTS') ? ' KYC documents can\'t be uploaded yet because no file storage is connected, so the application can\'t be submitted for now.' : ''}</div>` : ''}</div>
       <div class="ob-rvgrid">${STEPS.map(card).join('')}</div>
-      <div class="card ob-decl"><div class="ob-f ${ob.err.decl ? 'has-err' : ''}" data-p="decl"><label class="ck" style="align-items:flex-start"><input type="checkbox" id="ob-decl" ${ob.decl ? 'checked' : ''} ${ob.submitted ? 'disabled' : ''} style="margin-top:3px">
-        <span>I confirm these details are true and that I'm authorised to open this account for <b>${esc(ob.d.biz.legal)}</b>. I agree to the Bizpole Pay merchant terms and allow Bizpole Pay to share my KYC with PayU for verification.</span></label>
+      <div class="card ob-decl"><div class="ob-f ${ob.err.decl ? 'has-err' : ''}" data-p="decl"><label class="ck" style="align-items:flex-start"><input type="checkbox" id="ob-decl" ${ob.decl || done ? 'checked' : ''} ${done || !can ? 'disabled' : ''} style="margin-top:3px">
+        <span>I confirm these details are true and that I'm authorised to open this account for <b>${esc(ob.d.biz.legal || 'my business')}</b>. I agree to the Bizpole Pay merchant terms and allow Bizpole Pay to share my KYC with PayU for verification.</span></label>
         ${errBox('decl')}</div>
         <div class="ob-actions" style="margin-top:12px"><button class="btn" data-goto="${STEPS[STEPS.length - 1][0]}"><i data-icon=chevron-left class=li></i> Back</button><span style="flex:1"></span>
-          ${ob.submitted ? '<button class="btn primary" data-s="status">View application status</button>' : `<button class="btn primary" id="ob-submit" ${missing.length ? 'disabled' : ''}>Submit application</button>`}</div></div></div>`;
+          ${done ? '<button class="btn primary" data-s="status">View application status</button>' : can ? `<button class="btn primary" id="ob-submit" ${missing.length ? 'disabled' : ''}>Submit application</button>` : ''}</div></div></div>`;
   }
-  const AREA_PILL = { VERIFIED: ['ok', 'Verified'], IN_REVIEW: ['warn', 'In review'], ACTION: ['bad', 'Action needed'], SCHEDULED: ['brand', 'Scheduled'], PENDING: ['', 'Pending'] };
-  const areaPill = s => `<span class="pill ${AREA_PILL[s][0]}">${AREA_PILL[s][1]}</span>`;
   function statusView(){
-    const a = ob.areas, nOk = AREAS.filter(([k]) => a[k] === 'VERIFIED').length;
-    const stages = [['Submitted', true], ['Verification', ['pan', 'docs', 'bank', 'web'].every(k => a[k] === 'VERIFIED')], ['Agreement signed', a.esign === 'VERIFIED'], ['Video KYC', a.vkyc === 'VERIFIED'], ['Live', ob.approved]];
-    const curStage = stages.findIndex(s => !s[1]);
-    const action = k => k === 'esign' && a.esign === 'ACTION' ? '<button class="btn sm primary" data-act="esign">Sign agreement</button>'
-      : k === 'vkyc' && ['ACTION', 'SCHEDULED'].includes(a.vkyc) ? `<button class="btn sm ${a.vkyc === 'ACTION' ? 'primary' : ''}" data-act="vkyc">${a.vkyc === 'ACTION' ? 'Start video KYC' : 'Join now'}</button>` : '';
-    const notes = { pan: 'Name and PAN matched', docs: a.docs === 'VERIFIED' ? 'All documents accepted' : `${Object.keys(ob.d.kyc.files).length} documents with the risk team`, bank: ob.d.bank.pd && ob.d.bank.pd.nameAtBank ? `${esc(ob.d.bank.pd.nameAtBank)} · ${mask(ob.d.bank.acct)}` : 'Penny-drop matched',
-      web: a.web === 'VERIFIED' ? 'Policy pages approved' : `Reviewing ${esc(host(ob.d.web.url) || 'your website')}`, esign: a.esign === 'VERIFIED' ? 'Signed with Aadhaar OTP' : 'Waiting for your signature',
-      vkyc: a.vkyc === 'SCHEDULED' ? 'Booked for ' + esc(ob.vkycSlot) : a.vkyc === 'IN_REVIEW' ? 'Call completed · being checked' : a.vkyc === 'VERIFIED' ? 'Identity confirmed' : 'Takes about 3 minutes' };
+    const r = srv(), st = r.merchantStatus, sub = submittedAt();
+    const stages = [['Submitted', true], ['Review', ['LIVE'].includes(st)], ['Live', approved()]], curStage = stages.findIndex(s => !s[1]);
+    const evText = e => e.action === 'onboarding.submitted' ? 'Application submitted'
+      : `${(STEPS.find(s => e.meta && s[0] === e.meta.step) || [, 'Step'])[1]} ${EVENT_LABEL[e.action] || e.action.replace(/^onboarding\./, '').replace(/_/g, ' ')}`;
     return `<div class="ob-main ob-wide">
-      <div class="card ob-stathead ${ob.approved ? 'ok' : ''}"><div class="between" style="flex-wrap:wrap;align-items:flex-start"><div><div class="ob-kicker">APPLICATION APP-55120934</div>
-          <h2 class="ob-h2">${ob.approved ? '✓ Approved — your live account is ready' : 'Under review'}</h2>
-          <p class="muted" style="margin:2px 0 0">${ob.approved ? 'Live MID <span class="mono">87100421</span> is active. Switch to live mode to accept real payments.' : `Submitted ${fmtDate(ob.submitted)}. Reviews usually take 1–3 working days; we email ${esc(state.user.email)} at each step.`}</p></div>
-          ${ob.approved ? '<button class="btn primary" id="ob-golive">Switch to live mode</button>' : `<span class="pill warn" style="font-size:13px">${nOk} of ${AREAS.length} areas verified</span>`}</div>
+      <div class="card ob-stathead ${approved() ? 'ok' : ''}"><div class="between" style="flex-wrap:wrap;align-items:flex-start"><div><div class="ob-kicker">APPLICATION STATUS</div>
+          <h2 class="ob-h2">${approved() ? '✓ Approved — your live account is active' : esc(STATUS_LABEL[st] || st)}</h2>
+          <p class="muted" style="margin:2px 0 0">${approved() ? 'Switch to live mode to accept real payments.'
+            : `Submitted${sub ? ' ' + fmtDate(sub) : ''}. Sending applications to PayU isn't connected yet, so your application is saved in Bizpole Pay and hasn't reached PayU. This page updates when review starts.`}</p></div>
+          ${approved() ? '<button class="btn primary" id="ob-golive">Switch to live mode</button>' : statusPill(st)}</div>
         <div class="ob-stages">${stages.map(([l, d], i) => `<div class="ob-stage ${d ? 'done' : i === curStage ? 'cur' : ''}"><span class="n">${d ? '✓' : i + 1}</span><span>${l}</span></div>`).join('<i></i>')}</div></div>
-      <div class="ob-stgrid"><div class="card"><h3>Verification areas</h3><div class="tbl-wrap"><table><thead><tr><th>Area</th><th>Details</th><th>Status</th><th class="right">Action</th></tr></thead><tbody>
-          ${AREAS.map(([k, l, d]) => `<tr><td><b>${l}</b><div class="muted" style="font-size:12px">${d}</div></td><td>${notes[k]}</td><td>${areaPill(a[k])}</td><td class="right">${action(k)}</td></tr>`).join('')}</tbody></table></div>
-          ${ob.approved ? '' : `<div class="ob-demo"><div><b>Demo controls</b><div class="muted" style="font-size:12.5px">Skip the partner review: mark every area verified and unlock live mode.</div></div><button class="btn" id="ob-approve">Simulate approval</button></div>`}</div>
-        <div class="card"><h3>Timeline</h3><div class="ob-tl">${ob.timeline.slice().reverse().map(e => `<div class="ob-ev"><span class="dot ${e.kind === 'warn' ? 'warn' : e.kind === 'bad' ? 'bad' : ''}"></span><div><div>${e.text}</div><div class="muted" style="font-size:12px">${fmtDate(e.t)}</div></div></div>`).join('')}</div></div></div></div>`;
+      <div class="ob-stgrid"><div class="card"><h3>Your steps</h3><div class="tbl-wrap"><table><thead><tr><th>Step</th><th>Status</th><th>Notes</th></tr></thead><tbody>
+          ${STEPS.map(([k, t]) => { const s = r.steps[k] || {}, [cls, lbl] = STEP_LABEL[s.status || 'NOT_STARTED'];
+            return `<tr><td><b>${t}</b></td><td><span class="pill ${cls}">${lbl}</span></td><td class="muted">${esc(s.remarks || (s.submittedAt ? 'Submitted ' + fmtDate(new Date(s.submittedAt)) : '—'))}</td></tr>`; }).join('')}</tbody></table></div>
+          <h3 style="margin-top:18px">Verification by PayU</h3>
+          ${r.payu.length ? `<div class="tbl-wrap"><table><thead><tr><th>Area</th><th>Status</th><th>Remarks</th><th>Updated</th></tr></thead><tbody>
+            ${r.payu.map(a => `<tr><td><b>${esc(AREA_LABEL[a.area] || a.area)}</b></td><td><span class="pill">${esc(a.status)}</span></td><td class="muted">${esc(a.remarks || '—')}</td><td>${fmtDate(new Date(a.changedAt))}</td></tr>`).join('')}</tbody></table></div>`
+            : '<p class="muted" style="margin:0;font-size:13.5px">No verification updates from PayU yet. PAN, bank, website, agreement e-sign and video KYC checks will show here once your application reaches PayU.</p>'}</div>
+        <div class="card"><h3>Timeline</h3><div class="ob-tl">${r.timeline.slice().reverse().map(e => `<div class="ob-ev"><span class="dot ${e.action === 'onboarding.submitted' ? '' : 'warn'}"></span><div><div>${esc(evText(e))}</div><div class="muted" style="font-size:12px">${fmtDate(new Date(e.at))}${e.by ? ' · ' + esc(e.by) : ''}</div></div></div>`).join('') || '<p class="muted" style="margin:0">No activity yet.</p>'}</div></div></div></div>`;
   }
   function view(){
     if (!ob.cur) ob.cur = (STEPS.find(([k]) => state.onboarding[k] !== 'done') || STEPS[0])[0];
-    if (!ob.view) ob.view = ob.submitted ? 'status' : allDone() ? 'review' : 'step';
-    if (ob.view === 'status' && !ob.submitted) ob.view = 'review';
-    const done = doneCount();
-    const sub = ob.approved ? 'Your live account is active.' : ob.submitted ? 'Application submitted · under review with our payment partner.' : `${done} of ${STEPS.length} steps complete · progress is saved as you go.`;
+    if (!ob.view) ob.view = locked_() ? 'status' : allDone() ? 'review' : 'step';
+    if (ob.view === 'status' && !locked_()) ob.view = 'review';
+    const done = doneCount(), st = srv().merchantStatus;
+    const sub = approved() ? 'Your live account is active.' : locked_() ? `Application ${(STATUS_LABEL[st] || st).toLowerCase()}.` : `${done} of ${STEPS.length} steps complete · progress is saved to your account.`;
     const body = ob.view === 'status' ? statusView() : ob.view === 'review' ? reviewView() : stepView();
-    return head('Activate your live account', sub, ob.submitted ? `<span class="pill ${ob.approved ? 'ok' : 'warn'}" style="font-size:13px;padding:6px 12px">${ob.approved ? 'Live' : 'Under review'}</span>` : `<span class="chip">Test mode works while you finish</span>`) +
+    return head('Activate your live account', sub, locked_() ? statusPill(st) : `<span class="chip">Test mode works while you finish</span>`) +
       `<div class="ob-grid ${ob.view === 'step' ? '' : 'two'}">${rail()}${body}</div>`;
   }
 
@@ -364,56 +383,54 @@
   function focusErr(){ const el = document.querySelector('.ob-f.has-err'); if (el) { el.scrollIntoView({ block: 'center' }); const i = el.querySelector('input:not([type=checkbox]):not([type=file]),select,textarea'); if (i) i.focus({ preventScroll: true }); } }
   const redraw = () => { const r = $('#ob-root'); if (!r) return; r.innerHTML = view(); bind(); };
   const goStep = k => { ob.view = 'step'; ob.cur = k; redraw(); window.scrollTo(0, 0); };
-  const addEvent = (text, kind, t) => ob.timeline.push({ text, kind, t: t || new Date() });
-  function checkApproved(){
-    if (!ob.approved && AREAS.every(([k]) => ob.areas[k] === 'VERIFIED')) {
-      ob.approved = true; STEPS.forEach(([k]) => { state.onboarding[k] = 'done'; });
-      addEvent('Account approved — live MID 87100421 issued', 'ok'); toast('Approved · live mode unlocked');
-    }
-  }
-  function takeFile(k, f){
+  // KYC files can't be stored (no object storage). The server answers 501; show that under the document.
+  async function takeFile(k, f){
     if (!f) return;
     const p = `kyc.files.${k}`;
     if (!/\.(pdf|jpe?g|png)$/i.test(f.name)) ob.err[p] = `"${f.name}" isn't a PDF, JPG or PNG.`;
     else if (f.size > 5 * 1048576) ob.err[p] = `${f.name} is ${fsize(f.size)}. The limit is 5 MB.`;
     else if (!f.size) ob.err[p] = `${f.name} is empty.`;
-    else { ob.d.kyc.files[k] = { name: f.name, size: f.size }; delete ob.err[p]; toast('Uploaded ' + f.name); }
+    else {
+      try { await api('/onboarding/documents', { method: 'POST', mode: false, body: { type: k, name: f.name, size: f.size } }); }
+      catch (e) { ob.err[p] = e.message; }
+    }
     redraw();
   }
   function onChange(p){
     if (p === 'pan.entity') { if (ob.d.pan.pan) { const m = check('pan.pan'); if (m) ob.err['pan.pan'] = m; else delete ob.err['pan.pan']; } return redraw(); }
     if (p === 'biz.cat') { ob.d.biz.sub = ''; return redraw(); }
-    if (/^bank\.(holder|acct|ifsc)$/.test(p) && ob.d.bank.pd && ob.d.bank.pd.status !== 'running') { ob.d.bank.pd = null; $('#ob-pd').innerHTML = pdBox(); bindPd(); if (state.onboarding.BANK_ACCOUNT === 'done') state.onboarding.BANK_ACCOUNT = 'todo'; }
     const pol = p.match(/^web\.pol\.(\w+)\.on$/);
     if (pol) { const up = `web.pol.${pol[1]}.url`, box = document.querySelector(`[data-f="${up}"]`); box.disabled = !get(p); if (get(p)) box.focus(); else { delete ob.err[up]; paint(up); } }
     if (/^web\./.test(p) && ob.d.web.check && !ob.d.web.check.running) { ob.d.web.check = null; $('#ob-wc').innerHTML = wcBox(); bindWc(); }
   }
-  const bindPd = () => { const b = $('#ob-pdgo'); if (b) b.onclick = runPennyDrop; };
   const bindWc = () => { const b = $('#ob-wcgo'); if (b) b.onclick = runSiteCheck; };
-  const modal = (title, body) => openModal(`<div class="ob-m"><div class="between"><h2 style="margin:0;font-size:20px">${title}</h2><button class="x" onclick="closeAll()" aria-label="Close"><i data-icon=x class=li></i></button></div>${body}</div>`);
-  function esignModal(){
-    modal('Sign the merchant agreement', `<p class="muted" style="margin:8px 0 12px">Signed digitally with an OTP sent to the mobile linked to the signatory's Aadhaar.</p>
-      <div class="ob-agr"><b>Bizpole Pay merchant agreement · v3.2</b><ul class="ob-ul" style="margin:8px 0 0"><li>Pricing: 2% per successful payment + 18% GST on the fee</li><li>Settlement: T+1 working days to ${mask(ob.d.bank.acct)}</li><li>Refunds and chargebacks are adjusted in future settlements</li><li>Either side may end the agreement with 30 days' notice</li></ul></div>
-      <dl class="kv ob-kv" style="margin-top:12px"><dt>Signatory</dt><dd>${esc(ob.d.pan.name)}</dd><dt>For</dt><dd>${esc(ob.d.biz.legal)}</dd></dl>
-      <div id="ob-otpbox"><button class="btn primary block" id="ob-otp" style="margin-top:14px">Send OTP to Aadhaar-linked mobile</button></div>`);
-    $('#ob-otp').onclick = () => {
-      $('#ob-otpbox').innerHTML = `<div class="ob-f" data-p="otp"><label>6-digit OTP sent to ••••••4410</label><input id="ob-otpv" inputmode="numeric" maxlength="6" class="mono-in" placeholder="Demo: any 6 digits"><div class="ob-err" role="alert"></div></div>
-        <div class="ob-actions" style="justify-content:flex-end;padding-top:14px"><button class="btn" onclick="closeAll()">Cancel</button><button class="btn primary" id="ob-sign">Sign agreement</button></div>`;
-      $('#ob-otpv').focus();
-      $('#ob-sign').onclick = () => {
-        if (!/^\d{6}$/.test($('#ob-otpv').value)) { ob.err.otp = 'Enter the 6-digit OTP.'; paint('otp'); delete ob.err.otp; return; }
-        ob.areas.esign = 'VERIFIED'; addEvent('Merchant agreement e-signed by ' + esc(ob.d.pan.name), 'ok'); checkApproved(); closeAll(); toast('Agreement signed'); redraw();
-      };
-    };
-  }
-  function vkycModal(){
-    const slots = [1, 2, 3].map(d => new Date(now.getTime() + d * 864e5).toLocaleDateString('en-IN', { weekday: 'short', day: '2-digit', month: 'short' }));
-    modal('Video KYC', `<p class="muted" style="margin:8px 0 12px">A short video call where an agent matches you with your PAN. Use a phone or laptop with a camera.</p>
-      <ul class="ob-ul"><li>Keep your original PAN card ready</li><li>Sit in good light, with your face clearly visible</li><li>Stay in India during the call (location is checked)</li></ul>
-      <label>Or book a slot</label><select id="ob-slot"><option value="">Choose a slot…</option>${slots.flatMap(s => ['10:00 am', '2:30 pm', '5:00 pm'].map(t => `<option>${s}, ${t}</option>`)).join('')}</select>
-      <div class="ob-actions" style="justify-content:flex-end;padding-top:16px"><button class="btn" id="ob-book">Book slot</button><button class="btn primary" id="ob-start">Start call now</button></div>`);
-    $('#ob-book').onclick = () => { if (!$('#ob-slot').value) return toast('Choose a slot first'); ob.vkycSlot = $('#ob-slot').value; ob.areas.vkyc = 'SCHEDULED'; addEvent('Video KYC booked for ' + ob.vkycSlot); closeAll(); toast('Slot booked'); redraw(); };
-    $('#ob-start').onclick = () => { ob.areas.vkyc = 'IN_REVIEW'; addEvent('Video KYC call completed · recording under review', 'warn'); closeAll(); toast('Video KYC completed'); redraw(); };
+
+  // What each step sends. The server validates again and keeps raw PAN / account numbers out of OnboardingStep.data.
+  const PAYLOAD = {
+    PAN_DETAILS: () => ({ ...ob.d.pan }),
+    BUSINESS_DETAILS: () => ({ ...ob.d.biz }),
+    BANK_ACCOUNT: () => ({ holder: ob.d.bank.holder, type: ob.d.bank.type, ifsc: ob.d.bank.ifsc, acct: ob.d.bank.acct }),
+    WEBSITE_DETAILS: () => ({ url: ob.d.web.url, app: ob.d.web.app, pol: ob.d.web.pol }),
+    KYC_DOCUMENTS: () => ({ masked: ob.d.kyc.masked }),
+  };
+  const setBusy = on => ['#ob-draft', '#ob-next', '#ob-submit'].forEach(s => { const b = $(s); if (b) b.disabled = on; });
+  // Saves the current step (draft or submit), then refreshes onboarding state from the server.
+  async function saveStep(submit){
+    const k = ob.cur;
+    if (ob.saving) return false;
+    ob.saving = true; setBusy(true);
+    const keep = k === 'BANK_ACCOUNT' && !submit ? { acct: ob.d.bank.acct, acct2: ob.d.bank.acct2 } : null;
+    try {
+      const r = await api('/onboarding/' + k, { method: 'PUT', mode: false, body: { submit, data: PAYLOAD[k]() } });
+      hydrate(r, [k]);
+      if (keep) Object.assign(ob.d.bank, keep); // a draft doesn't store the account number; keep what was typed on screen
+      applyMe(await api('/auth/me', { mode: false }));
+      return true;
+    } catch (e) {
+      const f = e.data && e.data.field;
+      if (f) { ob.err[f] = e.message; ob.tried[k] = true; redraw(); focusErr(); toast('Fix the highlighted field'); } else apiFail(e);
+      return false;
+    } finally { ob.saving = false; setBusy(false); }
   }
 
   function bind(){
@@ -439,54 +456,46 @@
     if (ob.view === 'step') {
       const i = STEPS.findIndex(s => s[0] === ob.cur);
       if ($('#ob-back')) $('#ob-back').onclick = () => goStep(STEPS[i - 1][0]);
-      if ($('#ob-draft')) $('#ob-draft').onclick = () => toast('Draft saved · you can come back any time');
-      if ($('#ob-next')) $('#ob-next').onclick = () => {
+      if ($('#ob-draft')) $('#ob-draft').onclick = async () => {
+        if (await saveStep(false)) { redraw(); toast(ob.cur === 'BANK_ACCOUNT' ? 'Draft saved · the account number is stored when you continue' : 'Draft saved · you can come back any time'); }
+      };
+      if ($('#ob-next')) $('#ob-next').onclick = async () => {
+        if (ob.cur === 'KYC_DOCUMENTS') { // can't be submitted without document storage
+          if (await saveStep(false)) { ob.view = 'review'; redraw(); window.scrollTo(0, 0); toast('Draft saved'); }
+          return;
+        }
         ob.tried[ob.cur] = true;
         const bad = validate(ob.cur);
         if (bad.length) { redraw(); focusErr(); return toast(`Fix ${bad.length} field${bad.length > 1 ? 's' : ''} to continue`); }
-        state.onboarding[ob.cur] = 'done'; toast(`${STEPS[i][1]} saved`);
+        if (!(await saveStep(true))) return;
+        toast(`${STEPS[i][1]} saved`);
         const next = STEPS.find(([k], j) => j > i && state.onboarding[k] !== 'done') || STEPS.find(([k]) => state.onboarding[k] !== 'done');
         if (next) goStep(next[0]); else { ob.view = 'review'; redraw(); window.scrollTo(0, 0); }
       };
-      bindPd(); bindWc();
+      bindWc();
       document.querySelectorAll('#ob-root input[data-doc]').forEach(fi => fi.onchange = e => takeFile(fi.dataset.doc, e.target.files[0]));
       document.querySelectorAll('#ob-root [data-dropdoc]').forEach(z => {
         z.ondragover = e => { e.preventDefault(); z.classList.add('over'); };
         z.ondragleave = () => z.classList.remove('over');
         z.ondrop = e => { e.preventDefault(); z.classList.remove('over'); takeFile(z.dataset.dropdoc, e.dataTransfer.files[0]); };
       });
-      document.querySelectorAll('#ob-root [data-rm]').forEach(b => b.onclick = () => { delete ob.d.kyc.files[b.dataset.rm]; if (state.onboarding.KYC_DOCUMENTS === 'done') state.onboarding.KYC_DOCUMENTS = 'todo'; redraw(); toast('File removed'); });
-      if ($('#ob-sample')) $('#ob-sample').onclick = () => {
-        docsFor().forEach(([k], n) => { if (!ob.d.kyc.files[k]) ob.d.kyc.files[k] = { name: `${k}-${(ob.d.pan.pan || 'doc').toLowerCase()}.${n % 2 ? 'jpg' : 'pdf'}`, size: 180000 + n * 213457 }; delete ob.err[`kyc.files.${k}`]; });
-        redraw(); toast('Sample files attached');
-      };
     }
     if (ob.view === 'review') {
       const d = $('#ob-decl'); if (d) d.onchange = () => { ob.decl = d.checked; if (d.checked) { delete ob.err.decl; paint('decl'); } };
-      if ($('#ob-submit')) $('#ob-submit').onclick = () => {
+      if ($('#ob-submit')) $('#ob-submit').onclick = async () => {
         if (!allDone()) return toast('Finish every step first');
         if (!ob.decl) { ob.err.decl = 'Tick the declaration to submit.'; paint('decl'); return; }
-        const t = new Date(), at = s => new Date(t.getTime() + s * 1000);
-        ob.submitted = t; ob.view = 'status';
-        ob.areas = { pan: 'VERIFIED', docs: 'IN_REVIEW', bank: ob.d.bank.pd && ob.d.bank.pd.status === 'ok' ? 'VERIFIED' : 'IN_REVIEW', web: 'IN_REVIEW', esign: 'ACTION', vkyc: 'ACTION' };
-        addEvent('Application submitted', '', t);
-        addEvent(`PAN ${ob.d.pan.pan.slice(0, 5)}••••${ob.d.pan.pan.slice(-1)} verified with the Income Tax database`, 'ok', at(1));
-        if (ob.areas.bank === 'VERIFIED') addEvent('Bank account verified · name at bank matched', 'ok', at(2));
-        addEvent(`${Object.keys(ob.d.kyc.files).length} documents queued for the risk team`, 'warn', at(3));
-        addEvent('Website review started', 'warn', at(4));
-        addEvent('Waiting for agreement e-sign and video KYC', 'bad', at(5));
-        redraw(); window.scrollTo(0, 0); toast('Application submitted for review');
+        setBusy(true);
+        try {
+          hydrate(await api('/onboarding/submit', { method: 'POST', mode: false, body: { declaration: true } }), []);
+          applyMe(await api('/auth/me', { mode: false }));
+          ob.view = 'status'; redraw(); window.scrollTo(0, 0); toast('Application submitted');
+        } catch (e) { setBusy(false); if (e.data && e.data.field) { ob.err[e.data.field] = e.message; paint(e.data.field); } else apiFail(e); }
       };
     }
-    if (ob.view === 'status') {
-      document.querySelectorAll('#ob-root [data-act]').forEach(b => b.onclick = () => (b.dataset.act === 'esign' ? esignModal() : vkycModal()));
-      if ($('#ob-approve')) $('#ob-approve').onclick = () => {
-        const msg = { docs: 'KYC documents accepted', web: 'Website approved', esign: 'Agreement e-signed', vkyc: 'Video KYC approved', bank: 'Bank account verified', pan: 'PAN verified' };
-        AREAS.forEach(([k]) => { if (ob.areas[k] !== 'VERIFIED') { ob.areas[k] = 'VERIFIED'; addEvent(msg[k], 'ok'); } });
-        checkApproved(); redraw();
-      };
-      if ($('#ob-golive')) $('#ob-golive').onclick = () => { state.mode = 'live'; toast('Switched to live mode'); go('home'); };
-    }
+    if (ob.view === 'status' && $('#ob-golive')) $('#ob-golive').onclick = async () => {
+      state.mode = 'live'; await loadMode('live').catch(apiFail); toast('Switched to live mode'); go('home');
+    };
   }
 
   addStyle('onboarding', `
@@ -562,10 +571,8 @@
     .ob-stgrid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:16px}
     .ob-stgrid td{white-space:normal;vertical-align:middle}
     .ob-stgrid .card>.tbl-wrap{margin-bottom:14px}
-    .ob-demo{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:auto;padding:12px 14px;border:1.5px dashed var(--brand-2);border-radius:12px;background:var(--brand-soft)}
     .ob-tl{display:flex;flex-direction:column;gap:12px;font-size:13.5px}
     .ob-ev{display:flex;gap:6px;align-items:flex-start} .ob-ev .dot{margin-top:6px;flex:none}
-    .ob-agr{padding:12px 14px;border-radius:10px;background:var(--soft);font-size:13.5px}
     .modal:has(.ob-m){width:min(520px,calc(100% - 32px))}
     @media (max-width:1300px){ .ob-grid{grid-template-columns:260px minmax(0,1fr)} .ob-side{grid-column:2} }
     @media (max-width:1000px){ .ob-grid,.ob-grid.two{grid-template-columns:1fr} .ob-side{grid-column:auto} .ob-stgrid{grid-template-columns:1fr} .ob-rv.s2 .ob-kv{grid-template-columns:150px 1fr} }

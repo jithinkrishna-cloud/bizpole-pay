@@ -1,10 +1,10 @@
-# Page build guide (dashboard prototype)
+# Page build guide (dashboard)
 
 How to build or finish a page in `public/app.html`. **The finished reference page is `public/pages/transactions.js`.** Every page should reach that level.
 
 ## Structure
 
-- `public/app.html` is the **core**. It holds the CSS design system, router, shell (sidebar and top bar), mock data, and shared helpers. **Don't edit it** while working on a page.
+- `public/app.html` is the **core**. It holds the CSS design system, router, shell (sidebar and top bar), the API client and data loading, and shared helpers. Server routes live in `server/routes/<page>.js`. **Don't edit it** while working on a page.
 - `public/pages/<page>.js` holds one page each. They are plain `<script>` files loaded after the core and share its global scope.
 - Each file registers `PAGES.<route> = () => htmlString` and, if it needs event handlers, `BIND.<route> = () => { ... }`. The router runs `BIND` after rendering.
 - **Avoid name clashes.** Every top-level name is shared across all page files, and a duplicate `const`/`function` breaks the whole app. Wrap new code in an IIFE, `(() => { ... })();`, and assign `PAGES.x` / `BIND.x` inside it. If an inline `onclick="..."` needs a function, expose it as `window.<page>_<name>`.
@@ -20,9 +20,14 @@ How to build or finish a page in `public/app.html`. **The finished reference pag
 | `locked(what)` | "Unlocks in live mode" card. Use it when `liveLocked()` is true |
 | `openDrawer(html)`, `openModal(html)`, `closeAll()` | Right-hand detail panel, centre dialog, close both |
 | `go(route)`, `route()` | Navigate, re-render the current route |
-| `state` | `{ user, mode: 'test'\|'live', onboarding, saltShown }` |
+| `state` | `{ user, merchant, role, mids, mode: 'test'\|'live', onboarding, saltShown }` |
 | `isLive()`, `liveLocked()`, `D()` | Mode helpers; `D()` = this mode's transactions |
-| `data`, `refunds`, `settlements`, `links`, `webhooks`, `apiKeys`, `MODES`, `NAMES`, `rnd()`, `pick()`, `now` | Mock data and a seeded random generator (mode-keyed objects: `x[state.mode]`) |
+| `data`, `refunds`, `settlements` | Transactions, refunds, settlements per mode, loaded from `GET /api/payments` (mode-keyed: `x[state.mode]`) |
+| `links`, `webhooks`, `apiKeys` | Mode-keyed stores filled by their page loaders |
+| `api(path, { method, body, mode })` | Fetch `/api<path>?mode=<state.mode>` as JSON; throws `Error(message)` on failure. `apiFail(e)` shows it as a toast |
+| `LOAD.<page> = async (mode) => {}` | Page data loader. All loaders run after login and on every mode switch, so `PAGES.x` renders synchronously |
+| `reload()`, `applyMe(me)` | Re-fetch the current mode and redraw; refresh `state` from `GET /api/auth/me` |
+| `MODES`, `now` | Payment-method labels; current time (refreshed on each load) |
 | `addStyle(id, css)` | Inject page CSS once |
 | Transactions helpers you may **copy** (not call; they use Transactions-only state) | `toolbar`, `kpis`, `emptyState`, `pager`, `closeMenus` patterns |
 

@@ -16,7 +16,8 @@ Paynest is a merchant dashboard and payments platform for Indian businesses. It 
 | [prisma/sql/constraints.sql](prisma/sql/constraints.sql) | CHECKs, partial unique indexes, refund + ledger triggers |
 | [docs/SCHEMA_REVIEW.md](docs/SCHEMA_REVIEW.md) | PayU compatibility review, redesign rationale, open questions, verification |
 | [public/index.html](public/index.html) | Landing page |
-| [public/app.html](public/app.html) | Clickable dashboard prototype (all modules, mock data) |
+| [public/app.html](public/app.html) + [public/pages/](public/pages/) | Merchant dashboard (all modules), backed by the API |
+| [server/](server/) | API: auth/sessions, routes per module, PayU adapter. Runs on Neon Postgres via `pg` |
 
 ## Scope
 
@@ -73,7 +74,7 @@ Browser (Next.js app)                Merchant's server
 paynest/
 ├─ prisma/schema.prisma
 ├─ prisma.config.ts
-├─ public/index.html          # static landing + sign-in mock
+├─ public/index.html          # landing page (demo requests → /api/leads)
 ├─ src/
 │  ├─ app/                    # Next.js routes (auth, dashboard/*, api/*)
 │  ├─ server/payu/            # adapter: hash.ts, hosted.ts, commands.ts, oauth.ts
@@ -86,14 +87,18 @@ paynest/
 ## Getting started
 
 ```bash
-cp .env.example .env          # fill PAYU_TEST_KEY / PAYU_TEST_SALT from your PayU test dashboard
-npm i -D prisma && npm i @prisma/client dotenv
-npx prisma migrate dev --name init
-npx prisma migrate dev --create-only --name constraints   # paste prisma/sql/constraints.sql, then migrate dev
-npx prisma generate
+npm install
+neon env pull                 # writes .env.local: DATABASE_URL (pooled) + DATABASE_URL_UNPOOLED (direct)
+# add DATA_ENCRYPTION_KEY to .env.local (see .env.example)
+npm run db:migrate            # applies prisma/migrations (init + constraints) over the direct connection
+npm run dev                   # http://127.0.0.1:8765/  (static pages + /api)
 ```
 
-Open `public/index.html` (landing) or `public/app.html` (dashboard prototype; any email/password works) in a browser.
+Create an account at `/app.html#/signup`. There is no demo data: every screen reads the Neon database for the signed-in merchant and mode.
+
+**Deploy (Vercel):** `public/` is served statically and `api/index.js` serves `/api/*` (see `vercel.json`). Set `DATABASE_URL`, `DATA_ENCRYPTION_KEY` and the PayU variables in the Vercel project.
+
+**Schema changes:** edit `prisma/schema.prisma` (via docs/SCHEMA_REVIEW.md), then `npx prisma migrate dev --name <change>` against a Neon branch, never production first.
 
 ## Milestones
 

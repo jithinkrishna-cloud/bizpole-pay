@@ -1,153 +1,232 @@
-// Page: reports. Uses globals from app.html core (state, data, refunds, settlements, helpers, PAGES, BIND).
+// Page: reports. Uses globals from app.html core (state, api, LOAD, helpers, PAGES, BIND).
+// Report requests live in the Report table; each download builds the CSV from current data.
+// Layout: Categories (report cards by group) · Generated reports (history) · Scheduled reports.
 /* ---- Reports ---- */
 (() => {
-  const DAY = 864e5, KEEP_DAYS = 7, BUILD_MS = 2500;
+  const DAY = 864e5;
+  // Filters per report type (mirrors TYPES in server/routes/reports.js).
   const TYPES = {
-    Payments: { filters: [['status', 'Status', ['SUCCESS', 'FAILURE', 'PENDING', 'USER_CANCELLED']], ['mode', 'Payment mode', [...new Set(MODES)]]] },
-    Refunds: { filters: [['status', 'Status', ['QUEUED', 'IN_PROGRESS', 'SUCCESS', 'FAILED']]] },
-    Settlements: { filters: [['status', 'Status', ['PROCESSED', 'PENDING']]] },
-    Chargebacks: { filters: [['status', 'Status', ['OPEN', 'CLOSED']]] },
-    Payouts: { filters: [['status', 'Status', ['SUCCESS', 'PENDING']]] },
+    Payments: { label: 'Transactions', filters: [['status', 'Status', ['SUCCESS', 'FAILURE', 'PENDING', 'USER_CANCELLED']], ['method', 'Payment mode', [...new Set(MODES)]]] },
+    Settlements: { label: 'Settlements', filters: [['status', 'Status', ['PROCESSED', 'PENDING', 'ON_HOLD', 'FAILED']]] },
+    Refunds: { label: 'Refunds', filters: [['status', 'Status', ['REQUESTED', 'QUEUED', 'IN_PROGRESS', 'SUCCESS', 'FAILED']]] },
+    Chargebacks: { label: 'Chargebacks', filters: [['status', 'Status', ['OPEN', 'CLOSED']]] },
+    Payouts: { label: 'Payouts', filters: [['status', 'Status', ['QUEUED', 'SCHEDULED', 'IN_PROGRESS', 'PENDING', 'WAITING_FOR_RETRY', 'SUCCESS', 'FAILED', 'REVERSED']]] },
+    PaymentLinks: { label: 'Payment links', filters: [['status', 'Status', ['ACTIVE', 'PARTIALLY_PAID', 'PAID', 'EXPIRED', 'DEACTIVATED']]] },
+    Fees: { label: 'Fees & GST', filters: [] },
   };
-  const ago = (d, h = 0) => new Date(now - d * DAY - h * 3600e3);
-  // Payout mock rows match the Payouts page.
-  const PAYOUTS = { test: [
-    { date: new Date(2026, 10, 2, 10, 20), ref: 'VEND-1192', who: 'Sneha Iyer', mode: 'IMPS', amount: 1250000, utr: 'IMPS6629104', status: 'SUCCESS' },
-    { date: new Date(2026, 10, 1, 17, 2), ref: 'VEND-1191', who: 'Arjun Das', mode: 'UPI', amount: 450000, utr: '', status: 'PENDING' },
-    { date: new Date(2026, 9, 31, 12, 44), ref: 'VEND-1190', who: 'Bluebird Supplies', mode: 'NEFT', amount: 6100000, utr: 'N30512887', status: 'SUCCESS' },
-  ], live: [] };
+  // Category cards: [type, icon, description]
+  const GROUPS = [
+    ['', [
+      ['Payments', 'arrow-left-right', 'Every payment attempt with customer details, payment mode, amount, refunds and status.'],
+      ['Settlements', 'landmark', 'Payouts to your bank with UTR, payment count, fees, GST, refunds and net amount.'],
+      ['Refunds', 'rotate-ccw', 'Refunds you started and where each one is, from request to credit with the bank ARN.'],
+      ['Chargebacks', 'shield-alert', 'Disputes raised by customers’ banks with reason codes, amounts and response deadlines.'],
+    ]],
+    ['Product reports', [
+      ['Payouts', 'send', 'Money you sent to beneficiaries: amount, transfer mode, UTR, purpose and status.'],
+      ['PaymentLinks', 'link', 'Links you created with the amount asked, amount collected, payments and status.'],
+    ]],
+    ['Financial documents', [
+      ['Fees', 'file-text', 'Service fees and GST deducted in each settlement. Use it for your accounts and GST filing.'],
+    ]],
+  ];
+  const label = t => (TYPES[t] && TYPES[t].label) || t;
+  const ago = d => new Date(now - d * DAY);
   const iso = d => d.toLocaleDateString('en-CA');
-  const fromIso = s => new Date(s + 'T00:00:00'), toIso = s => new Date(s + 'T23:59:59.999');
+  const fromIso = s => new Date(s + 'T00:00:00');
   const dayLabel = d => d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-  const rupees = p => (p / 100).toFixed(2);
-  const q = v => /[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v);
+  const nice = v => v.replace(/_/g, ' ').toLowerCase().replace(/^./, c => c.toUpperCase());
 
   const rp = {
-    seq: 1044,
-    form: { type: 'Payments', from: iso(ago(6)), to: iso(now), format: 'CSV', status: '', mode: '' },
-    hist: { test: [
-      { id: 'RP1043', type: 'Payments', from: iso(ago(6, 2)), to: iso(ago(0, 2)), format: 'CSV', filters: {}, status: 'READY', at: ago(0, 2), rows: null },
-      { id: 'RP1042', type: 'Settlements', from: iso(ago(9)), to: iso(ago(1)), format: 'Excel', filters: { status: 'PROCESSED' }, status: 'READY', at: ago(1, 3), rows: null },
-      { id: 'RP1039', type: 'Refunds', from: iso(ago(40)), to: iso(ago(10)), format: 'CSV', filters: {}, status: 'EXPIRED', at: ago(10, 5), rows: 0 },
-    ], live: [] },
-    sched: { test: [
-      { id: 'SC11', type: 'Payments', freq: 'Daily', day: '', time: '09:00', to: 'demo@bizpolepay.example' },
-      { id: 'SC12', type: 'Settlements', freq: 'Weekly', day: 'Monday', time: '08:30', to: 'accounts@bizpolepay.example, demo@bizpolepay.example' },
-    ], live: [] },
+    tab: 'cat',
+    form: { type: 'Payments', from: iso(ago(6)), to: iso(now), format: 'CSV', status: '', method: '' },
+    hist: { test: [], live: [] },
+    count: null, countKey: '',
   };
-  const hist = () => rp.hist[state.mode], sched = () => rp.sched[state.mode];
-
-  function source(r){
-    const a = fromIso(r.from).getTime(), b = toIso(r.to).getTime(), f = r.filters || {}, inR = d => d.getTime() >= a && d.getTime() <= b;
-    const m = state.mode;
-    switch (r.type) {
-      case 'Payments': return { head: 'date,payu_id,txnid,customer,email,phone,payment_mode,bank,amount,refunded,status,failure_reason',
-        rows: data[m].filter(t => inR(t.date) && (!f.status || t.status === f.status) && (!f.mode || t.mode === f.mode))
-          .map(t => [t.date.toISOString(), t.mihpayid, t.txnid, t.name, t.email, t.phone, t.mode, t.bank, rupees(t.amount), rupees(t.refunded), t.status, t.error]) };
-      case 'Refunds': return { head: 'date,refund_id,txnid,customer,amount,captured,reason,payu_request_id,bank_arn,status',
-        rows: refunds[m].filter(x => inR(x.date) && (!f.status || x.status === f.status))
-          .map(x => [x.date.toISOString(), x.id, x.txnid, x.name, rupees(x.amount), rupees(x.captured || 0), x.reason, x.requestId, x.arn === '—' ? '' : x.arn, x.status]) };
-      case 'Settlements': return { head: 'settlement_date,settlement_id,utr,payments,gross,fee,gst,refunds,carried_in,carried_out,net,status',
-        rows: settlements[m].filter(s => inR(s.date) && (!f.status || s.status === f.status))
-          .map(s => [iso(s.date), s.id, s.status === 'PENDING' ? '' : s.utr, s.count, rupees(s.gross), rupees(s.fee), rupees(s.tax), rupees(s.ref), rupees(s.carriedIn), rupees(s.carriedOut), rupees(s.net), s.status]) };
-      case 'Chargebacks': return { head: 'case_id,raised,txnid,payu_id,reason_code,reason,amount,respond_by,status',
-        rows: (window.chargebacks_list ? window.chargebacks_list() : []).filter(c => inR(c.raised) && (!f.status || (f.status === 'CLOSED') === ['WON', 'LOST'].includes(c.status)))
-          .map(c => [c.raised.toISOString(), c.id, c.txnid, c.mihpayid, c.code, c.reason, rupees(c.amount), c.respondBy.toISOString(), c.status]) };
-      default: return { head: 'date,reference,beneficiary,mode,amount,utr,status',
-        rows: PAYOUTS[m].filter(p => inR(p.date) && (!f.status || p.status === f.status)).map(p => [p.date.toISOString(), p.ref, p.who, p.mode, rupees(p.amount), p.utr, p.status]) };
-    }
-  }
-  hist().forEach(r => { if (r.rows === null) r.rows = source(r).rows.length; });
+  const hist = () => rp.hist[state.mode] || [];
+  const shape = r => ({ ...r, at: new Date(r.at), completedAt: toDate(r.completedAt) });
+  LOAD.reports = async (mode) => { rp.hist[mode] = (await api('/reports', { mode })).map(shape); };
 
   addStyle('reports', `
+    .rp-tabs{display:flex;gap:22px;border-bottom:1px solid var(--line);margin:0 0 20px}
+    .rp-tabs button{white-space:nowrap;flex:none;border:0;background:none;padding:10px 2px;margin-bottom:-1px;font-size:14.5px;font-weight:500;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent}
+    .rp-tabs button:hover{color:var(--ink)}
+    .rp-tabs button.on{color:var(--ink);font-weight:600;border-bottom-color:var(--brand)}
+    .rp-tabs .n{display:inline-block;min-width:18px;padding:0 6px;margin-left:6px;border-radius:9px;background:var(--soft);font-size:11.5px;line-height:18px;text-align:center}
+    .rp-sec{margin:26px 0 12px;font-size:15px;font-weight:600;color:var(--muted)}
+    .rp-sec:first-child{margin-top:0}
+    .rp-cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+    .rp-card{display:flex;flex-direction:column;gap:10px;padding:16px 18px;text-align:left;cursor:pointer;transition:border-color .15s,box-shadow .15s}
+    .rp-card:hover{border-color:var(--brand);box-shadow:var(--shadow-sm)}
+    .rp-card .t{display:flex;align-items:center;gap:10px;font-weight:600;font-size:15px;color:var(--ink)}
+    .rp-card .ic{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;background:var(--brand-soft);color:var(--brand);flex:none}
+    .rp-card p{margin:0;font-size:13px;line-height:1.5;color:var(--muted);flex:1}
+    .rp-card .go{font-size:13px;font-weight:600;color:var(--brand);display:flex;align-items:center;gap:4px}
     .rp-seg{display:inline-flex;border:1.5px solid var(--line);border-radius:9px;overflow:hidden;background:var(--card)}
     .rp-seg button{border:0;background:none;padding:9px 16px;font-weight:600;cursor:pointer;color:var(--muted)}
     .rp-seg button.on{background:var(--brand-soft);color:var(--brand)}
-    .rp-form{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0 14px}
-    .rp-presets{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+    .rp-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 14px;margin-top:14px}
+    .rp-presets{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
     .rp-err{color:var(--bad);font-size:12.5px;margin:8px 0 0;min-height:0}
-    .rp-sch{display:flex;align-items:flex-start;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
-    .rp-sch:last-of-type{border-bottom:0}
-    .rp-sch .ic{width:36px;height:36px;border-radius:10px;background:var(--brand-soft);color:var(--brand);display:grid;place-items:center;flex:none;font-size:16px}
-    .rp-sch .who{font-size:12.5px;color:var(--muted);overflow-wrap:anywhere;word-break:normal}
     .rp-acts{display:flex;gap:6px;justify-content:flex-end}
-    @media (max-width:1000px){.rp-form{grid-template-columns:repeat(2,minmax(0,1fr))}}
-    @media (max-width:820px){.rp-form{grid-template-columns:1fr}}
+    @media (max-width:1100px){.rp-cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media (max-width:640px){.rp-cards,.rp-form{grid-template-columns:1fr}.rp-tabs{gap:14px;overflow-x:auto}}
   `);
 
-  const pill = r => r.status === 'QUEUED' ? '<span class="pill warn"><i data-icon=repeat class=li></i> Generating</span>' : r.status === 'READY' ? '<span class="pill ok">Ready</span>' : '<span class="pill bad">Expired</span>';
-  const expires = r => new Date(r.at.getTime() + KEEP_DAYS * DAY);
-  const filtersLabel = f => Object.entries(f || {}).filter(([, v]) => v).map(([k, v]) => `${k === 'mode' ? '' : 'Status: '}${v.replace(/_/g, ' ').toLowerCase().replace(/^./, c => c.toUpperCase())}`).join(' · ') || '<span class="muted">All</span>';
+  // QUEUED = recorded, not downloaded yet; READY = generated at least once (completedAt).
+  const pill = r => r.status === 'READY' ? '<span class="pill ok">Generated</span>' : '<span class="pill">Requested</span>';
+  const filtersLabel = f => Object.entries(f || {}).filter(([, v]) => v).map(([k, v]) => `${k === 'method' ? '' : 'Status: '}${esc(nice(v))}`).join(' · ') || '<span class="muted">All</span>';
   const rangeLabel = r => `${dayLabel(fromIso(r.from))} – ${dayLabel(fromIso(r.to))}`;
+  const formFilters = f => { const o = {}; (TYPES[f.type] || TYPES.Payments).filters.forEach(([k]) => { if (f[k]) o[k] = f[k]; }); return o; };
+  const countText = () => rp.count == null ? 'Counting matching records…' : `${rp.count} matching record${rp.count === 1 ? '' : 's'} in this range`;
 
-  function builder(){
-    const f = rp.form, defs = TYPES[f.type].filters;
-    const sel = (id, label, opts, val) => `<div><label for="${id}">${label}</label><select id="${id}"><option value="">All</option>${opts.map(o => `<option value="${o}" ${o === val ? 'selected' : ''}>${o.replace(/_/g, ' ').toLowerCase().replace(/^./, c => c.toUpperCase())}</option>`).join('')}</select></div>`;
-    const n = source({ ...f, filters: { status: f.status, mode: f.mode } }).rows.length;
-    return `<div class="card"><div class="between"><h3 style="margin:0">Generate a report</h3><span class="muted" style="font-size:13px">Ready in a few seconds · kept for ${KEEP_DAYS} days</span></div>
-      <div class="rp-form">
-        <div><label for="rpt">Report type</label><select id="rpt">${Object.keys(TYPES).map(t => `<option ${t === f.type ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
-        <div><label for="rpf">From</label><input type="date" id="rpf" value="${f.from}" max="${iso(now)}"></div>
-        <div><label for="rpto">To</label><input type="date" id="rpto" value="${f.to}" max="${iso(now)}"></div>
-        <div><label>Format</label><div class="rp-seg">${['CSV', 'Excel'].map(x => `<button data-fmt="${x}" class="${x === f.format ? 'on' : ''}">${x}</button>`).join('')}</div></div>
-        ${defs.map(([k, l, opts]) => sel('rpx-' + k, l + ' (optional)', opts, f[k])).join('')}
-      </div>
-      <div class="rp-presets">${[['Today', 0], ['Last 7 days', 6], ['Last 30 days', 29], ['This month', -1]].map(([l, d]) => `<button class="chip" data-pre="${d}">${l}</button>`).join('')}</div>
-      <p class="rp-err" id="rperr"></p>
-      <div class="between" style="margin-top:auto;padding-top:14px;flex-wrap:wrap"><span class="muted" style="font-size:13px" id="rpcount">${n} matching record${n === 1 ? "" : "s"} in this range</span>
-        <button class="btn primary" id="rpgo">Generate report</button></div></div>`;
+  // Server-side count for the current form (same query the download uses).
+  async function recountRemote(){
+    const f = rp.form;
+    if (!f.from || !f.to || f.from > f.to) { rp.count = null; return; }
+    const qs = new URLSearchParams({ type: f.type, from: f.from, to: f.to, ...formFilters(f) }).toString();
+    if (qs === rp.countKey) return;
+    rp.countKey = qs; rp.count = null;
+    if ($('#rpcount')) $('#rpcount').textContent = countText();
+    try {
+      const out = await api('/reports/preview?' + qs);
+      if (rp.countKey !== qs) return;
+      rp.count = out.rows;
+    } catch (e) {
+      if (rp.countKey !== qs) return;
+      rp.countKey = '';
+      if ($('#rpcount')) $('#rpcount').textContent = '';
+      if ($('#rperr')) $('#rperr').textContent = e.message;
+      return;
+    }
+    if ($('#rpcount')) $('#rpcount').textContent = countText();
   }
 
-  function schedCard(){
-    return `<div class="card"><div class="between"><h3 style="margin:0">Scheduled reports</h3><button class="btn sm" id="rpadd">+ Add schedule</button></div>
-      <p class="muted" style="font-size:13px;margin:4px 0 4px">Emailed automatically as a CSV attachment.</p>
-      ${sched().length ? sched().map(s => `<div class="rp-sch"><span class="ic">✉</span><div style="flex:1;min-width:0"><b>${s.type}</b> · ${s.freq === 'Daily' ? 'Daily' : 'Every ' + s.day} at ${s.time}
-        <div class="who">To ${esc(s.to)}</div><div class="muted" style="font-size:12px">Covers the previous ${s.freq === 'Daily' ? 'day' : '7 days'}</div></div>
-        <button class="btn sm danger" data-unsched="${s.id}" aria-label="Remove schedule">Remove</button></div>`).join('')
-        : `<div class="empty" style="padding:24px 8px"><div style="font-size:26px">✉</div><p style="margin:6px 0 0">No scheduled reports.</p><p style="margin:2px 0 0;font-size:13px">Add one to get payments or settlements in your inbox every morning.</p></div>`}
-    </div>`;
+  /* ---- Tab: categories ---- */
+  function categories(){
+    return GROUPS.map(([title, cards]) => `${title ? `<h3 class="rp-sec">${title}</h3>` : '<div class="rp-sec" style="margin:0"></div>'}
+      <div class="rp-cards">${cards.map(([type, icon, desc]) => `<button class="card rp-card" data-open="${type}">
+        <span class="t"><span class="ic"><i data-icon=${icon} class=li></i></span>${label(type)}</span>
+        <p>${desc}</p><span class="go"><i data-icon=download class=li></i> Download report</span></button>`).join('')}</div>`).join('');
   }
 
+  /* ---- Tab: generated reports ---- */
   function history(){
     const list = hist();
-    return `<div class="between" style="margin:22px 0 10px;flex-wrap:wrap"><h3 style="margin:0">Report history</h3><span class="muted" style="font-size:13px">${list.filter(r => r.status === 'READY').length} ready to download · links expire after ${KEEP_DAYS} days</span></div>
-      <div class="tbl-wrap"><table><thead><tr><th>Requested</th><th>Report ID</th><th>Type</th><th>Date range</th><th>Filters</th><th>Format</th><th class="right">Rows</th><th>Status</th><th>Expires</th><th class="right">Actions</th></tr></thead>
-      <tbody id="rphist">${list.length ? list.map(r => {
-        const exp = expires(r), left = Math.ceil((exp - Date.now()) / DAY);
-        return `<tr><td>${fmtDate(r.at)}</td><td class="mono">${r.id}</td><td><b>${r.type}</b></td><td>${rangeLabel(r)}</td><td>${filtersLabel(r.filters)}</td><td>${r.format}</td>
-          <td class="right">${r.status === 'QUEUED' ? '<span class="muted">—</span>' : r.status === 'EXPIRED' ? '<span class="muted">—</span>' : r.rows}</td><td>${pill(r)}</td>
-          <td>${r.status === 'EXPIRED' ? `<span class="muted">${dayLabel(exp)}</span>` : r.status === 'QUEUED' ? '<span class="muted">—</span>' : `${dayLabel(exp)}<div class="muted" style="font-size:11.5px">in ${left} day${left === 1 ? '' : 's'}</div>`}</td>
-          <td><div class="rp-acts">${r.status === 'READY' ? `<button class="btn sm" data-dl="${r.id}"><i data-icon=download class=li></i> Download</button>` : ''}
-            <button class="btn sm" data-rerun="${r.id}" ${r.status === 'QUEUED' ? 'disabled' : ''}><i data-icon=refresh-cw class=li></i> Re-run</button><button class="btn sm danger" data-del="${r.id}" ${r.status === 'QUEUED' ? 'disabled' : ''}>Delete</button></div></td></tr>`;
-      }).join('') : `<tr><td colspan="10"><div class="empty-state"><div class="box"><i data-icon=file-text class=li></i></div><div><p class="muted" style="margin:0;font-size:12px;letter-spacing:.06em">NO REPORTS YET</p>
-        <h3 style="margin:4px 0 6px;font-size:20px">Your generated reports appear here</h3><p class="muted" style="margin:0 0 12px">Pick a report type and date range above, then choose Generate report.</p>
-        <button class="btn sm primary" id="rpfirst">Generate last 7 days of payments</button></div></div></td></tr>`}</tbody></table></div>`;
+    return `<div class="between" style="margin:0 0 10px;flex-wrap:wrap"><span class="muted" style="font-size:13px">${list.length} report${list.length === 1 ? '' : 's'} · each download uses your latest data</span>
+        <button class="btn sm" data-open="Payments"><i data-icon=download class=li></i> New report</button></div>
+      <div class="tbl-wrap"><table><thead><tr><th>Report</th><th>Date range</th><th>Filters</th><th>Format</th><th>Status</th><th>Requested</th><th>Last generated</th><th class="right">Actions</th></tr></thead>
+      <tbody>${list.length ? list.map(r => `<tr><td><b>${esc(label(r.type))}</b><div class="mono muted" style="font-size:11.5px">${esc(r.id)}</div></td><td>${rangeLabel(r)}</td><td>${filtersLabel(r.filters)}</td><td>${esc(r.format)}</td>
+          <td>${pill(r)}</td><td>${fmtDate(r.at)}</td><td>${r.completedAt ? fmtDate(r.completedAt) : '<span class="muted">—</span>'}</td>
+          <td><div class="rp-acts"><button class="btn sm" data-dl="${esc(r.id)}"><i data-icon=download class=li></i> Download</button>
+            <button class="btn sm" data-rerun="${esc(r.id)}" title="Re-run with latest data" aria-label="Re-run"><i data-icon=refresh-cw class=li></i></button>
+            <button class="btn sm danger" data-del="${esc(r.id)}" title="Delete" aria-label="Delete"><i data-icon=x class=li></i></button></div></td></tr>`).join('')
+        : `<tr><td colspan="8"><div class="empty-state"><div class="box"><i data-icon=file-text class=li></i></div><div><p class="muted" style="margin:0;font-size:12px;letter-spacing:.06em">NO REPORTS YET</p>
+        <h3 style="margin:4px 0 6px;font-size:20px">Your generated reports appear here</h3><p class="muted" style="margin:0 0 12px">Pick a report from Categories, choose the dates, then download it.</p>
+        <button class="btn sm primary" id="rpfirst">Download last 7 days of transactions</button></div></div></td></tr>`}</tbody></table></div>`;
+  }
+
+  /* ---- Tab: scheduled reports ---- */
+  // Scheduled email delivery needs a scheduler and email sender; neither exists yet, so no schedules are offered.
+  function scheduled(){
+    return `<div class="card"><div class="empty" style="padding:32px 8px"><div style="font-size:28px">✉</div>
+      <h3 style="margin:8px 0 4px">Scheduled reports aren’t available yet</h3>
+      <p class="muted" style="margin:0 0 14px;font-size:13.5px">Soon you’ll be able to get reports emailed daily, weekly or monthly. For now, download any report on demand.</p>
+      <button class="btn sm" id="rptocat">Browse reports</button></div></div>`;
+  }
+
+  /* ---- Builder (modal) ---- */
+  function builder(){
+    const f = rp.form, defs = TYPES[f.type].filters;
+    const sel = (id, l, opts, val) => `<div><label for="${id}">${l} (optional)</label><select id="${id}"><option value="">All</option>${opts.map(o => `<option value="${o}" ${o === val ? 'selected' : ''}>${esc(nice(o))}</option>`).join('')}</select></div>`;
+    return `<div class="between"><h2 style="margin:0;font-size:20px">Download ${esc(label(f.type))} report</h2><button class="x" onclick="closeAll()"><i data-icon=x class=li></i></button></div>
+      <p class="muted" style="margin:4px 0 0;font-size:13px">Built from your latest data each time you download.</p>
+      <div class="rp-form">
+        <div style="grid-column:1/-1"><label for="rpt">Report</label><select id="rpt">${Object.keys(TYPES).map(t => `<option value="${t}" ${t === f.type ? 'selected' : ''}>${esc(label(t))}</option>`).join('')}</select></div>
+        <div><label for="rpf">From</label><input type="date" id="rpf" value="${f.from}" max="${iso(now)}"></div>
+        <div><label for="rpto">To</label><input type="date" id="rpto" value="${f.to}" max="${iso(now)}"></div>
+        <div style="grid-column:1/-1" class="rp-presets">${[['Today', 0], ['Last 7 days', 6], ['Last 30 days', 29], ['This month', -1]].map(([l, d]) => `<button class="chip" data-pre="${d}">${l}</button>`).join('')}</div>
+        ${defs.map(([k, l, opts]) => sel('rpx-' + k, l, opts, f[k])).join('')}
+        <div style="grid-column:1/-1;margin-top:12px"><label>Format</label><div class="rp-seg">${['CSV', 'Excel'].map(x => `<button data-fmt="${x}" class="${x === f.format ? 'on' : ''}">${x}</button>`).join('')}</div></div>
+      </div>
+      <p class="rp-err" id="rperr"></p>
+      <div class="between" style="padding-top:16px;flex-wrap:wrap;gap:10px"><span class="muted" style="font-size:13px" id="rpcount">${countText()}</span>
+        <div class="row" style="gap:8px"><button class="btn" onclick="closeAll()">Cancel</button><button class="btn primary" id="rpgo"><i data-icon=download class=li></i> Download</button></div></div>`;
+  }
+
+  function openBuilder(type){
+    if (type && TYPES[type] && type !== rp.form.type) { rp.form.type = type; rp.form.status = ''; rp.form.method = ''; }
+    rp.countKey = '';
+    drawBuilder();
+  }
+  function drawBuilder(){
+    openModal(builder(), { wide: true });
+    drawIcons();
+    bindBuilder();
+    recountRemote();
   }
 
   PAGES.reports = () => {
     if (liveLocked()) return head('Reports') + locked('Reports');
-    return head('Reports', 'Export payments, refunds, settlements, chargebacks and payouts for reconciliation.',
-      `<a class="btn" href="#/settlements">₹ Settlements</a>`) + `<div id="rpview"></div>`;
+    return head('Reports & documents', 'Download transactions, settlements, refunds, chargebacks, payouts and fee statements for reconciliation.',
+      `<button class="btn" id="rpdl"><i data-icon=download class=li></i> Download</button><button class="btn" id="rpsch"><i data-icon=calendar class=li></i> Schedule</button>`) + `<div id="rpview"></div>`;
   };
 
   function render(){
-    $('#rpview').innerHTML = `<div class="grid g-21">${builder()}${schedCard()}</div>` + history();
+    const n = hist().length;
+    const tabs = [['cat', 'Categories'], ['gen', `Generated reports${n ? `<span class="n">${n}</span>` : ''}`], ['sch', 'Scheduled reports']];
+    $('#rpview').innerHTML = `<div class="rp-tabs" role="tablist">${tabs.map(([k, l]) => `<button role="tab" data-tab="${k}" class="${k === rp.tab ? 'on' : ''}">${l}</button>`).join('')}</div>`
+      + (rp.tab === 'cat' ? categories() : rp.tab === 'gen' ? history() : scheduled());
+    drawIcons();
     bind();
   }
 
-  function queue(params){
-    const r = { id: 'RP' + rp.seq++, ...params, status: 'QUEUED', at: new Date(), rows: 0 };
-    hist().unshift(r);
-    setTimeout(() => { r.status = 'READY'; r.rows = source(r).rows.length; if ($('#rpview') && location.hash.includes('reports')) render(); toast(`${r.type} report ${r.id} is ready`); }, BUILD_MS);
-    return r;
+  async function create(params, btn){
+    if (btn) btn.disabled = true;
+    try {
+      const r = shape(await api('/reports', { method: 'POST', body: params }));
+      rp.hist[state.mode] = [r, ...hist()];
+      return r;
+    } catch (e) {
+      if (btn) btn.disabled = false;
+      if ($('#rperr')) $('#rperr').textContent = e.message; else apiFail(e);
+      return null;
+    }
   }
 
-  function download(r){
-    const { head: h, rows } = source(r), excel = r.format === 'Excel';
-    const csv = (excel ? '﻿' : '') + h + '\n' + rows.map(x => x.map(q).join(',')).join('\n') + (rows.length ? '\n' : '');
-    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
-    a.download = `bizpolepay-${r.type.toLowerCase()}-${r.from}-to-${r.to}.csv`; a.click();
-    toast(`Downloaded ${rows.length} rows${excel ? ' (CSV, opens in Excel)' : ''}`);
+  async function download(r, btn){
+    if (!r) return;
+    if (btn) btn.disabled = true;
+    try {
+      // Same API origin as api() (core may point dev pages at the :8765 API server).
+      const base = typeof API_BASE === 'string' ? API_BASE : '';
+      const res = await fetch(`${base}/api/reports/${encodeURIComponent(r.id)}/download?mode=${state.mode}`, { credentials: 'include' });
+      if (!res.ok) { let msg = 'Download failed (' + res.status + ')'; try { msg = (await res.json()).error || msg; } catch (e) { /* not JSON */ } throw new Error(msg); }
+      // Keep raw bytes for the file: text() would drop the UTF-8 BOM the Excel format relies on.
+      const bytes = await res.arrayBuffer(), text = new TextDecoder().decode(bytes), hdr = res.headers.get('x-row-count');
+      // x-row-count isn't readable cross-origin; fall back to counting record breaks outside quotes, minus the header.
+      let n = hdr != null ? +hdr : 0;
+      if (hdr == null) { let inQ = false; for (const ch of text) { if (ch === '"') inQ = !inQ; else if (ch === '\n' && !inQ) n++; } n = Math.max(0, n - 1); }
+      const blob = new Blob([bytes], { type: 'text/csv;charset=utf-8' });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+      a.download = `bizpolepay-${r.type.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase()}-${r.from}-to-${r.to}.csv`; a.click();
+      r.status = 'READY'; r.completedAt = new Date();
+      if ($('#rpview')) render();
+      toast(`Downloaded ${label(r.type)}: ${n} row${n === 1 ? '' : 's'}${r.format === 'Excel' ? ' (CSV, opens in Excel)' : ''}`);
+    } catch (e) {
+      if (btn) btn.disabled = false;
+      apiFail(e);
+    }
+  }
+
+  // Record the report, then download it straight away; it stays under Generated reports for later.
+  async function createAndDownload(params, btn){
+    const r = await create(params, btn);
+    if (!r) return;
+    closeAll();
+    rp.tab = 'gen';
+    if ($('#rpview')) render();
+    await download(r);
   }
 
   function readForm(){
@@ -156,54 +235,45 @@
     TYPES[f.type].filters.forEach(([k]) => { const el = $('#rpx-' + k); f[k] = el ? el.value : ''; });
   }
 
-  function bind(){
+  function bindBuilder(){
     const f = rp.form;
-    $('#rpt').onchange = () => { readForm(); f.status = ''; f.mode = ''; render(); };
-    const recount = () => { readForm(); const n = source({ ...f, filters: { status: f.status, mode: f.mode } }).rows.length; $('#rpcount').textContent = `${n} matching record${n === 1 ? "" : "s"} in this range`; $('#rperr').textContent = ''; };
+    $('#rpt').onchange = () => { readForm(); f.status = ''; f.method = ''; drawBuilder(); };
+    const recount = () => { readForm(); $('#rperr').textContent = ''; recountRemote(); };
     ['#rpf', '#rpto'].forEach(s => $(s).onchange = recount);
-    document.querySelectorAll('[id^="rpx-"]').forEach(el => el.onchange = recount);
-    document.querySelectorAll('[data-fmt]').forEach(b => b.onclick = () => { readForm(); f.format = b.dataset.fmt; render(); });
-    document.querySelectorAll('[data-pre]').forEach(b => b.onclick = () => {
+    document.querySelectorAll('#modal [id^="rpx-"]').forEach(el => el.onchange = recount);
+    document.querySelectorAll('#modal [data-fmt]').forEach(b => b.onclick = () => { readForm(); f.format = b.dataset.fmt; drawBuilder(); });
+    document.querySelectorAll('#modal [data-pre]').forEach(b => b.onclick = () => {
       readForm(); const d = +b.dataset.pre;
-      f.from = d < 0 ? iso(new Date(now.getFullYear(), now.getMonth(), 1)) : iso(ago(d)); f.to = iso(now); render();
+      f.from = d < 0 ? iso(new Date(now.getFullYear(), now.getMonth(), 1)) : iso(ago(d)); f.to = iso(now); drawBuilder();
     });
     $('#rpgo').onclick = () => {
       readForm();
-      const err = !f.from || !f.to ? 'Choose both dates.' : f.from > f.to ? '"From" must be on or before "To".' : f.to > iso(now) ? 'The range can\'t end in the future.' : (fromIso(f.to) - fromIso(f.from)) / DAY > 365 ? 'Pick a range of one year or less.' : '';
+      const err = !f.from || !f.to ? 'Choose both dates.' : f.from > f.to ? '"From" must be on or before "To".' : f.to > iso(new Date()) ? 'The range can\'t end in the future.' : (fromIso(f.to) - fromIso(f.from)) / DAY > 365 ? 'Pick a range of one year or less.' : '';
       if (err) { $('#rperr').textContent = err; return; }
-      const filters = {}; TYPES[f.type].filters.forEach(([k]) => { if (f[k]) filters[k] = f[k]; });
-      const r = queue({ type: f.type, from: f.from, to: f.to, format: f.format, filters });
-      render(); toast(`${r.type} report queued · ${r.id}`);
+      createAndDownload({ type: f.type, from: f.from, to: f.to, format: f.format, filters: formFilters(f) }, $('#rpgo'));
     };
-    document.querySelectorAll('[data-dl]').forEach(b => b.onclick = () => download(hist().find(r => r.id === b.dataset.dl)));
-    document.querySelectorAll('[data-rerun]').forEach(b => b.onclick = () => {
-      const o = hist().find(r => r.id === b.dataset.rerun), r = queue({ type: o.type, from: o.from, to: o.to, format: o.format, filters: { ...o.filters } });
-      render(); toast(`Re-running ${o.id} as ${r.id}`);
-    });
-    document.querySelectorAll('[data-del]').forEach(b => b.onclick = () => { const i = hist().findIndex(r => r.id === b.dataset.del); const [r] = hist().splice(i, 1); render(); toast(`Deleted ${r.id}`); });
-    document.querySelectorAll('[data-unsched]').forEach(b => b.onclick = () => { const i = sched().findIndex(s => s.id === b.dataset.unsched); const [s] = sched().splice(i, 1); render(); toast(`${s.type} schedule removed`); });
-    $('#rpadd').onclick = schedModal;
-    if ($('#rpfirst')) $('#rpfirst').onclick = () => { queue({ type: 'Payments', from: iso(ago(6)), to: iso(now), format: 'CSV', filters: {} }); render(); toast('Payments report queued'); };
   }
 
-  function schedModal(){
-    openModal(`<div class="between"><h2 style="margin:0;font-size:20px">Schedule a report</h2><button class="x" onclick="closeAll()"><i data-icon=x class=li></i></button></div>
-      <label for="sct">Report type</label><select id="sct">${Object.keys(TYPES).map(t => `<option>${t}</option>`).join('')}</select>
-      <div class="row" style="gap:12px"><div style="min-width:120px"><label for="scf">Frequency</label><select id="scf"><option>Daily</option><option>Weekly</option></select></div>
-        <div style="min-width:120px" id="scdw" hidden><label for="scd">Day</label><select id="scd">${['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(d => `<option>${d}</option>`).join('')}</select></div>
-        <div style="min-width:120px"><label for="sctime">Time (IST)</label><input type="time" id="sctime" value="09:00"></div></div>
-      <label for="scto">Email to</label><input id="scto" value="${esc(state.user.email)}" placeholder="name@business.in, accounts@business.in">
-      <p class="muted" style="font-size:12.5px;margin:6px 0 0">Separate up to 5 addresses with commas.</p><p class="rp-err" id="scerr"></p>
-      <div class="row" style="margin-top:14px"><button class="btn" onclick="closeAll()">Cancel</button><button class="btn primary" id="scsave">Save schedule</button></div>`);
-    $('#scf').onchange = e => { $('#scdw').hidden = e.target.value !== 'Weekly'; };
-    $('#scsave').onclick = () => {
-      const emails = $('#scto').value.split(',').map(s => s.trim()).filter(Boolean), time = $('#sctime').value;
-      const bad = emails.find(e => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
-      const err = !emails.length ? 'Add at least one email address.' : bad ? `"${bad}" isn't a valid email address.` : emails.length > 5 ? 'Use 5 addresses or fewer.' : !time ? 'Choose a time.' : '';
-      if (err) { $('#scerr').textContent = err; return; }
-      const s = { id: 'SC' + (13 + sched().length + Math.floor(Math.random() * 900)), type: $('#sct').value, freq: $('#scf').value, day: $('#scf').value === 'Weekly' ? $('#scd').value : '', time, to: emails.join(', ') };
-      sched().push(s); closeAll(); toast(`${s.type} report scheduled · ${s.freq === 'Daily' ? 'daily' : 'every ' + s.day} at ${s.time}`); if ($('#rpview')) render();
-    };
+  function bind(){
+    if ($('#rpdl')) $('#rpdl').onclick = () => openBuilder();
+    if ($('#rpsch')) $('#rpsch').onclick = () => { rp.tab = 'sch'; render(); };
+    document.querySelectorAll('#rpview [data-tab]').forEach(b => b.onclick = () => { rp.tab = b.dataset.tab; render(); });
+    document.querySelectorAll('#rpview [data-open]').forEach(b => b.onclick = () => openBuilder(b.dataset.open));
+    if ($('#rptocat')) $('#rptocat').onclick = () => { rp.tab = 'cat'; render(); };
+    document.querySelectorAll('#rpview [data-dl]').forEach(b => b.onclick = () => download(hist().find(r => r.id === b.dataset.dl), b));
+    document.querySelectorAll('#rpview [data-rerun]').forEach(b => b.onclick = async () => {
+      const o = hist().find(r => r.id === b.dataset.rerun);
+      if (o) createAndDownload({ type: o.type, from: o.from, to: o.to, format: o.format, filters: { ...o.filters } }, b);
+    });
+    document.querySelectorAll('#rpview [data-del]').forEach(b => b.onclick = async () => {
+      const id = b.dataset.del; b.disabled = true;
+      try {
+        await api(`/reports/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        rp.hist[state.mode] = hist().filter(r => r.id !== id);
+        render(); toast(`Deleted ${id}`);
+      } catch (e) { b.disabled = false; apiFail(e); }
+    });
+    if ($('#rpfirst')) $('#rpfirst').onclick = () => createAndDownload({ type: 'Payments', from: iso(ago(6)), to: iso(now), format: 'CSV', filters: {} }, $('#rpfirst'));
   }
 
   BIND.reports = () => { if (!liveLocked()) render(); };

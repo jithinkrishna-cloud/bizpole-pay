@@ -1,6 +1,19 @@
 {
+  "name": "paynest",
+  "private": true,
+  "scripts": {
+    "dev": "node scripts/serve.js 8765",
+    "db:migrate": "prisma migrate deploy",
+    "db:status": "prisma migrate status"
+  },
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
     "@neon/config": "^1.10.0",
-    "@neon/env": "^1.6.8"
+    "@neon/env": "^1.6.8",
+    "dotenv": "^18.0.9",
+    "pg": "^8.23.1",
+    "prisma": "^7.10.1"
   }
 }

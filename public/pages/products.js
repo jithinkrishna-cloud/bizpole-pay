@@ -1,4 +1,5 @@
-// Page: products. Uses globals from app.html core (state, data, helpers, PAGES, BIND).
+// Page: products. Uses globals from app.html core (state, api, LOAD, data, helpers, PAGES, BIND).
+// The catalogue is static config; access requests and launch notifications are stored server-side (AuditLog).
 /* ---- Explore products ---- */
 (() => {
   const CATS = [
@@ -23,8 +24,10 @@
     { id: 'analytics', cat: 'grow', ic: '<i data-icon=chart-pie class=li></i>', name: 'Payment analytics', line: 'See success rates by mode and bank, failure reasons and peak hours.', status: 'Enabled', route: 'analytics' },
   ];
   const VOLUMES = ['Under ₹1 lakh', '₹1–10 lakh', '₹10–50 lakh', '₹50 lakh – ₹2 crore', 'Above ₹2 crore'];
-  const pr = { q: '', cat: 'all', status: {}, requests: {}, notify: {} };
-  const statusOf = p => pr.status[p.id] || p.status;
+  const pr = { q: '', cat: 'all', saved: { test: { requests: {}, notify: {} }, live: { requests: {}, notify: {} } } };
+  const mine = () => pr.saved[state.mode] || { requests: {}, notify: {} };
+  LOAD.products = async (mode) => { pr.saved[mode] = await api('/products', { mode }); };
+  const statusOf = p => p.status === 'Request access' && mine().requests[p.id] ? 'Requested' : p.status;
   const PILL = { 'Enabled': 'ok', 'Available': 'brand', 'Request access': '', 'Requested': 'warn', 'Coming soon': '' };
 
   function cta(p, primary = false){
@@ -33,24 +36,23 @@
     if (s === 'Enabled') return `<a class="btn sm" href="#/${p.route}">Open <i data-icon=chevron-right class=li></i></a>`;
     if (s === 'Available') return `<button class="btn sm${P}" data-prgo="${p.id}">Set up <i data-icon=chevron-right class=li></i></button>`;
     if (s === 'Request access') return `<button class="btn sm${P}" data-prreq="${p.id}">Request access</button>${p.route ? `<a class="btn sm" href="#/${p.route}">Preview</a>` : ''}`;
-    if (s === 'Requested') return `<button class="btn sm" disabled>✓ Request sent</button><span class="muted" style="font-size:12px">Reply within 2 working days</span>`;
-    return `<button class="btn sm" data-prnotify="${p.id}">${pr.notify[p.id] ? '✓ We\'ll notify you' : '🔔 Notify me'}</button>`;
+    if (s === 'Requested') return `<button class="btn sm" disabled>✓ Request sent</button><span class="muted" style="font-size:12px">Sent ${new Date(mine().requests[p.id].at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}</span>`;
+    return `<button class="btn sm" data-prnotify="${p.id}">${mine().notify[p.id] ? '✓ We\'ll notify you' : '🔔 Notify me'}</button>`;
   }
   const tile = p => `<div class="card pr-card" data-prid="${p.id}"><div class="between" style="align-items:flex-start"><div class="pr-ic">${p.ic}</div><span class="pill ${PILL[statusOf(p)]}">${statusOf(p)}</span></div>
     <b class="pr-name">${p.name}</b><p class="muted pr-line">${p.line}</p><div class="pr-cta">${cta(p)}</div></div>`;
 
-  // Recommendations derived from this account's own payments.
+  // Recommendations derived only from this account's own payments; none are shown without a real signal.
   function recommended(){
-    const t = D(), ok = t.filter(x => x.status === 'SUCCESS'), refs = refunds[state.mode];
+    const t = D(), ok = t.filter(x => x.status === 'SUCCESS'), refs = refunds[state.mode] || [];
     const big = ok.filter(x => x.amount >= 500000), byEmail = {};
-    ok.forEach(x => byEmail[x.email] = (byEmail[x.email] || 0) + 1);
+    ok.forEach(x => { if (x.email) byEmail[x.email] = (byEmail[x.email] || 0) + 1; });
     const repeat = Object.values(byEmail).filter(n => n >= 2).length;
     const recs = [
-      ['instant', refs.length ? `You issued ${refs.length} refunds recently. Customers would get them back in seconds.` : 'Refund customers in seconds and cut "where is my money" tickets.', refs.length],
-      ['emi', big.length ? `${big.length} of your ${ok.length} payments were ₹5,000 or more — good candidates for monthly instalments.` : 'Make bigger purchases affordable with monthly instalments.', big.length],
-      ['subs', repeat ? `${repeat} customers paid you more than once. Bill them automatically each cycle.` : 'Bill regular customers automatically every cycle.', repeat],
-      ['priority', 'Get today\'s collections today and smooth out your cash flow.', 1],
-    ].filter(([id]) => !['Enabled', 'Requested'].includes(statusOf(CATALOGUE.find(p => p.id === id))));
+      ['instant', `You issued ${refs.length} refund${refs.length === 1 ? '' : 's'}. Customers would get them back in seconds.`, refs.length],
+      ['emi', `${big.length} of your ${ok.length} successful payments were ₹5,000 or more — good candidates for monthly instalments.`, big.length],
+      ['subs', `${repeat} customer${repeat === 1 ? '' : 's'} paid you more than once. Bill them automatically each cycle.`, repeat],
+    ].filter(([id, , n]) => n > 0 && !['Enabled', 'Requested'].includes(statusOf(CATALOGUE.find(p => p.id === id))));
     return recs.sort((a, b) => b[2] - a[2]).slice(0, 3);
   }
 
@@ -84,14 +86,17 @@
       <label for="prUse">How will you use ${p.name.toLowerCase()}?</label><textarea id="prUse" rows="3" placeholder="e.g. Monthly billing for 400 gym members"></textarea>
       <label for="prVol">Expected monthly volume</label><select id="prVol"><option value="">Choose a range</option>${VOLUMES.map(v => `<option>${v}</option>`).join('')}</select>
       <div class="notice bad" id="prErr" style="display:none"></div>
-      <p class="muted" style="font-size:12.5px">We reply by email to ${esc(state.user.email)} within 2 working days.</p>
+      <p class="muted" style="font-size:12.5px">Your request is saved on your account and our team replies by email to ${esc(state.user.email)}.</p>
       <div class="row"><button class="btn" onclick="closeAll()">Cancel</button><button class="btn primary" id="prSend">Submit request</button></div>`);
-    $('#prSend').onclick = () => {
-      const use = $('#prUse').value.trim(), vol = $('#prVol').value, err = $('#prErr');
+    $('#prSend').onclick = async () => {
+      const use = $('#prUse').value.trim(), vol = $('#prVol').value, err = $('#prErr'), btn = $('#prSend');
       const msg = use.length < 10 ? 'Describe your use case in at least 10 characters.' : !vol ? 'Choose your expected monthly volume.' : '';
       if (msg) { err.textContent = msg; err.style.display = 'block'; return; }
-      pr.status[id] = 'Requested'; pr.requests[id] = { use, vol, at: new Date() };
-      closeAll(); toast(`Access requested for ${p.name}`); route();
+      btn.disabled = true;
+      try {
+        pr.saved[state.mode] = await api(`/products/${id}/request`, { method: 'POST', body: { use, volume: vol } });
+        closeAll(); toast(`Access requested for ${p.name}`); route();
+      } catch (e) { btn.disabled = false; err.textContent = e.message; err.style.display = 'block'; }
     };
   }
 
@@ -116,7 +121,13 @@
     document.querySelectorAll('[data-prcat]').forEach(b => b.onclick = () => { pr.cat = b.dataset.prcat; route(); });
     document.querySelectorAll('[data-prreq]').forEach(b => b.onclick = () => requestDialog(b.dataset.prreq));
     document.querySelectorAll('[data-prgo]').forEach(b => b.onclick = () => { const p = CATALOGUE.find(x => x.id === b.dataset.prgo); toast(`${p.name}: setup continues on ${p.route === 'transactions' ? 'Transactions' : 'the next page'}`); go(p.route); });
-    document.querySelectorAll('[data-prnotify]').forEach(b => b.onclick = () => { const id = b.dataset.prnotify; pr.notify[id] = !pr.notify[id]; toast(pr.notify[id] ? 'We\'ll email you when it launches' : 'Notification turned off'); route(); });
+    document.querySelectorAll('[data-prnotify]').forEach(b => b.onclick = async () => {
+      const id = b.dataset.prnotify, on = !mine().notify[id]; b.disabled = true;
+      try {
+        pr.saved[state.mode] = await api(`/products/${id}/notify`, { method: 'POST', body: { on } });
+        toast(on ? 'We\'ll email you when it launches' : 'Notification turned off'); route();
+      } catch (e) { b.disabled = false; apiFail(e); }
+    });
     if ($('#prclear')) $('#prclear').onclick = () => { pr.q = ''; pr.cat = 'all'; route(); };
   };
   window.products_request = requestDialog;

@@ -12,11 +12,14 @@
   const SORTS = [['spend', 'Lifetime value: high to low'], ['last', 'Last payment: most recent'], ['payments', 'Payments: most first'], ['name', 'Name: A to Z']];
   const cu = { q: '', seg: [], sort: 'spend', page: 1 };
 
-  // One row per customer email, built from this mode's transactions and refunds.
+  // One row per customer (email, else phone), built from this mode's transactions and refunds.
+  // Payments with no customer details at all are left out: there is nobody to list.
+  const keyOf = t => (t.email || '').toLowerCase() || t.phone || '';
   function customers(){
     const m = {};
     D().forEach(t => {
-      const c = m[t.email] = m[t.email] || { name: t.name, email: t.email, phone: t.phone, txns: [], first: t.date, last: null, lastAttempt: t.date, ok: 0, spend: 0, refunded: 0, modes: {}, recentFails: 0 };
+      const k = keyOf(t); if (!k) return;
+      const c = m[k] = m[k] || { key: k, name: t.name, email: t.email, phone: t.phone, txns: [], first: t.date, last: null, lastAttempt: t.date, ok: 0, spend: 0, refunded: 0, modes: {}, recentFails: 0 };
       c.txns.push(t);
       if (t.date < c.first) c.first = t.date;
       if (t.date > c.lastAttempt) c.lastAttempt = t.date;
@@ -36,7 +39,7 @@
     });
   }
   const segPill = k => { const s = SEGMENTS.find(x => x[0] === k); return `<span class="pill ${s[3]}" title="${s[2]}">${s[1]}</span>`; };
-  const initials = n => n.split(' ').map(p => p[0]).slice(0, 2).join('');
+  const initials = n => (n && n !== '—' ? n : '?').split(' ').filter(Boolean).map(p => p[0]).slice(0, 2).join('').toUpperCase();
   function rows(all){
     const q = cu.q.trim().toLowerCase();
     const by = { spend: (a, b) => b.ltv - a.ltv, last: (a, b) => (b.last || 0) - (a.last || 0), payments: (a, b) => b.ok - a.ok || b.ltv - a.ltv, name: (a, b) => a.name.localeCompare(b.name) }[cu.sort];
@@ -68,9 +71,9 @@
       <span style="flex:1"></span>
       <span class="row cu-segchips" style="flex:none;gap:6px">${SEGMENTS.map(([k, l]) => `<button class="chip ${cu.seg.length === 1 && cu.seg[0] === k ? 'brand' : ''}" data-cuchip="${k}">${l} · ${all.filter(c => c.segs.includes(k)).length}</button>`).join('')}</span></div>`;
     const th = (key, label, cls = '') => `<th class="${cls} sortable" data-cusorth="${key}">${label} <span class="muted">${cu.sort === key ? '↓' : '↕'}</span></th>`;
-    const body = list.length ? list.slice((cu.page - 1) * PER_PAGE, cu.page * PER_PAGE).map(c => `<tr class="click" data-cu="${esc(c.email)}">
-        <td><div class="row" style="gap:10px;flex-wrap:nowrap"><span class="cu-av">${esc(initials(c.name))}</span><div style="min-width:0"><b>${esc(c.name)}</b><div class="muted" style="font-size:12px">${esc(c.email)}</div></div></div></td>
-        <td>${esc(c.phone)}</td><td>${c.segs.map(segPill).join(' ') || '<span class="muted">—</span>'}</td>
+    const body = list.length ? list.slice((cu.page - 1) * PER_PAGE, cu.page * PER_PAGE).map(c => `<tr class="click" data-cu="${esc(c.key)}">
+        <td><div class="row" style="gap:10px;flex-wrap:nowrap"><span class="cu-av">${esc(initials(c.name))}</span><div style="min-width:0"><b>${esc(c.name)}</b><div class="muted" style="font-size:12px">${esc(c.email || '—')}</div></div></div></td>
+        <td>${esc(c.phone || '—')}</td><td>${c.segs.map(segPill).join(' ') || '<span class="muted">—</span>'}</td>
         <td class="right">${c.ok}<span class="muted"> / ${c.txns.length}</span></td><td>${c.mode}</td>
         <td class="right"><b>${inr(c.ltv)}</b>${c.refunded ? `<div class="muted" style="font-size:11.5px">${inr(c.refunded)} refunded</div>` : ''}</td>
         <td>${c.last ? fmtDate(c.last) : '<span class="muted">Never paid</span>'}</td></tr>`).join('')
@@ -85,15 +88,15 @@
     return header + kpis + toolbar + `<div class="tbl-wrap"><table><thead><tr><th>Customer</th><th>Phone</th><th>Segment</th>${th('payments', 'Payments', 'right')}<th>Preferred mode</th>${th('spend', 'Lifetime value', 'right')}${th('last', 'Last payment')}</tr></thead><tbody>${body}</tbody></table></div>` + pager;
   }
 
-  function drawer(email){
-    const c = customers().find(x => x.email === email); if (!c) return;
+  function drawer(key){
+    const c = customers().find(x => x.key === key); if (!c) return;
     const txids = new Set(c.txns.map(t => t.txnid)), refs = refunds[state.mode].filter(r => txids.has(r.txnid));
     const modeRows = Object.entries(c.modes).sort((a, b) => b[1] - a[1]);
     openDrawer(`<div class="between"><div class="row" style="gap:12px;flex-wrap:nowrap"><span class="cu-av lg">${esc(initials(c.name))}</span><div style="min-width:0"><h2 style="margin:0">${esc(c.name)}</h2><div class="muted" style="font-size:13px">Customer since ${fmtDate(c.first)}</div></div></div><button class="x" onclick="closeAll()"><i data-icon=x class=li></i></button></div>
       <p style="margin:12px 0">${c.segs.map(segPill).join(' ') || '<span class="pill">No segment</span>'}</p>
       <div class="cu-stats"><div><small>Lifetime value</small><b>${inr(c.ltv)}</b></div><div><small>Successful payments</small><b>${c.ok} <span class="muted" style="font-size:13px;font-weight:500">of ${c.txns.length}</span></b></div>
         <div><small>Average ticket</small><b>${c.ok ? inr(Math.round(c.spend / c.ok)) : '—'}</b></div><div><small>Refunded</small><b>${inr(c.refunded)}</b></div></div>
-      <h3 style="margin-top:18px">Profile</h3><dl class="kv"><dt>Email</dt><dd>${esc(c.email)}</dd><dt>Phone</dt><dd>${esc(c.phone)}</dd><dt>Last successful payment</dt><dd>${c.last ? fmtDate(c.last) : 'Never'}</dd><dt>Last attempt</dt><dd>${fmtDate(c.lastAttempt)}</dd></dl>
+      <h3 style="margin-top:18px">Profile</h3><dl class="kv"><dt>Email</dt><dd>${esc(c.email || '—')}</dd><dt>Phone</dt><dd>${esc(c.phone || '—')}</dd><dt>Last successful payment</dt><dd>${c.last ? fmtDate(c.last) : 'Never'}</dd><dt>Last attempt</dt><dd>${fmtDate(c.lastAttempt)}</dd></dl>
       <h3 style="margin-top:18px">Preferred payment mode</h3>
       ${modeRows.length ? modeRows.map(([m, n]) => `<div class="hbar"><span>${m}</span><span class="t"><i style="width:${n / c.ok * 100}%"></i></span><span class="right">${n}</span></div>`).join('') : '<p class="muted">No successful payments yet.</p>'}
       <h3 style="margin-top:18px">Payment history <span class="muted" style="font-weight:500;font-size:13px">· ${c.txns.length}</span></h3>
@@ -102,13 +105,15 @@
       <h3 style="margin-top:18px">Refunds <span class="muted" style="font-weight:500;font-size:13px">· ${refs.length}</span></h3>
       ${refs.length ? `<div class="tbl-wrap"><table><thead><tr><th>Refund ID</th><th>Txn ID</th><th class="right">Amount</th><th>Status</th></tr></thead><tbody>
         ${refs.map(r => `<tr title="${esc(r.reason || '')}"><td><span class="mono">${r.id}</span><div class="muted" style="font-size:11px">${esc(r.reason || '')}</div></td><td class="mono">${r.txnid}</td><td class="right">${inr(r.amount)}</td><td>${statusPill(r.status)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="muted" style="margin:0">No refunds for this customer.</p>'}
-      <div class="row" style="margin-top:20px"><button class="btn primary" onclick="customers_link('${esc(c.email)}')"><i data-icon=link class=li></i> Create payment link</button>
-        <button class="btn" onclick="navigator.clipboard&&navigator.clipboard.writeText('${esc(c.email)}');toast('Email copied')">Copy email</button></div>`);
+      <div class="row" style="margin-top:20px"><button class="btn primary" id="culink"><i data-icon=link class=li></i> Create payment link</button>
+        ${c.email ? '<button class="btn" id="cucopy">Copy email</button>' : ''}</div>`);
+    $('#culink').onclick = () => customers_link(c.key);
+    const cp = $('#cucopy'); if (cp) cp.onclick = () => { navigator.clipboard && navigator.clipboard.writeText(c.email); toast('Email copied'); };
   }
   // Hands the customer to Payment links: hash query `#/links?name=&email=&phone=` (links page may read it),
   // and, as a fallback, opens that page's create dialog and fills the customer fields if they exist.
-  window.customers_link = email => {
-    const c = customers().find(x => x.email === email); if (!c) return;
+  window.customers_link = key => {
+    const c = customers().find(x => x.key === key); if (!c) return;
     closeAll();
     go('links?' + new URLSearchParams({ name: c.name, email: c.email, phone: c.phone }).toString());
     setTimeout(() => {
@@ -150,11 +155,11 @@
     document.querySelectorAll('[data-cupg]').forEach(b => b.onclick = () => { cu.page = +b.dataset.cupg; redraw(); });
     document.querySelectorAll('tr[data-cu]').forEach(r => r.onclick = () => drawer(r.dataset.cu));
     if ($('#cuclear')) $('#cuclear').onclick = () => { cu.q = ''; cu.seg = []; cu.page = 1; redraw(); };
-    if ($('#cutest')) $('#cutest').onclick = () => { state.mode = 'test'; route(); toast('Switched to test mode'); };
+    if ($('#cutest')) $('#cutest').onclick = () => { if (isLive() && $('#mode')) $('#mode').click(); }; // core toggle reloads test data
     if ($('#cudl')) $('#cudl').onclick = () => {
       const list = rows(customers());
       const csv = 'name,email,phone,segments,successful_payments,attempts,preferred_mode,lifetime_value_inr,refunded_inr,first_seen,last_payment\n' +
-        list.map(c => [`"${c.name}"`, c.email, c.phone, c.segs.join('|'), c.ok, c.txns.length, c.mode, (c.ltv / 100).toFixed(2), (c.refunded / 100).toFixed(2), c.first.toISOString(), c.last ? c.last.toISOString() : ''].join(',')).join('\n') + '\n';
+        list.map(c => [`"${String(c.name).replace(/"/g, '""')}"`, c.email, c.phone, c.segs.join('|'), c.ok, c.txns.length, c.mode, (c.ltv / 100).toFixed(2), (c.refunded / 100).toFixed(2), c.first.toISOString(), c.last ? c.last.toISOString() : ''].join(',')).join('\n') + '\n';
       const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = 'bizpolepay-customers.csv'; a.click();
       toast(`Downloaded ${list.length} customers`);
     };
