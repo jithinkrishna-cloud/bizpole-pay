@@ -168,6 +168,13 @@
       SA.ui.bindRetry(view);
     }
   };
+  // Detail pages: turn the last crumb into a link and append the record's name.
+  SA.crumb = (label, parentHref) => {
+    const c = $("#crumbs"), last = c.querySelector("b");
+    if (last && parentHref) last.outerHTML = `<a href="${esc(parentHref)}">${esc(last.textContent)}</a>`;
+    c.insertAdjacentHTML("beforeend", `<span class="sep">/</span><b>${esc(label)}</b>`);
+    document.title = `${label} · Paynest Control Centre`;
+  };
   SA.chart = (canvas, config) => {
     const c = new window.Chart(canvas, config);
     charts.add(c);
@@ -194,12 +201,53 @@
       return `<span class="pill ${tone}">${esc(fmt.label(s))}</span>`;
     },
     modeTag: (m) => (m ? `<span class="tag ${String(m).toLowerCase()}">${esc(fmt.label(m))}</span>` : ""),
-    table(columns, rows, emptyHtml) {
+    // opts.sort = { path, params }: columns with `sort` get header links that toggle ?sort=&dir= (server-side sorting).
+    // opts.rowHref(row): the whole row opens that address (the first link in the row stays the keyboard target).
+    table(columns, rows, emptyHtml, opts = {}) {
       if (!rows.length) return emptyHtml;
-      return `<div class="tbl-wrap"><table class="tbl"><thead><tr>${columns.map((c) => `<th class="${c.align === "r" ? "r" : ""}" scope="col">${esc(c.label)}</th>`).join("")}</tr></thead>
-        <tbody>${rows.map((r) => `<tr>${columns.map((c) => `<td class="${[c.align === "r" ? "r" : "", c.cls || ""].join(" ")}">${c.render ? c.render(r) : esc(r[c.key])}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+      const th = (c) => {
+        const cls = c.align === "r" ? "r" : "";
+        if (!c.sort || !opts.sort) return `<th class="${cls}" scope="col">${esc(c.label)}</th>`;
+        const { path, params } = opts.sort, on = params.sort === c.sort;
+        const dir = on && params.dir !== "asc" ? "asc" : "desc";
+        const aria = on ? (params.dir === "asc" ? "ascending" : "descending") : "none";
+        return `<th class="${cls}" scope="col" aria-sort="${aria}"><a class="sort${on ? " on" : ""}" href="${SA.hashFor(path, { ...params, sort: c.sort, dir, page: "" })}">${esc(c.label)}<span aria-hidden="true">${on ? (params.dir === "asc" ? "↑" : "↓") : "↕"}</span></a></th>`;
+      };
+      return `<div class="tbl-wrap"><table class="tbl"><thead><tr>${columns.map(th).join("")}</tr></thead>
+        <tbody>${rows.map((r) => `<tr${opts.rowHref ? ` data-href="${esc(opts.rowHref(r))}"` : ""}>${columns.map((c) => `<td class="${[c.align === "r" ? "r" : "", c.cls || ""].join(" ")}">${c.render ? c.render(r) : esc(r[c.key])}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
     },
+    // Paged API result → "1–25 of 120" with previous/next links.
+    pager(data, hrefFor) {
+      if (!data || data.total <= data.size && data.page === 1) return data && data.total ? `<div class="pager"><span>${fmt.int(data.total)} ${data.total === 1 ? "result" : "results"}</span></div>` : "";
+      const from = (data.page - 1) * data.size + 1, to = Math.min(data.total, data.page * data.size);
+      const link = (p, label, on) => on ? `<a class="btn sm" href="${hrefFor(p)}">${label}</a>` : `<span class="btn sm" aria-disabled="true">${label}</span>`;
+      return `<nav class="pager" aria-label="Pages"><span>${data.total ? `${fmt.int(from)}–${fmt.int(to)} of ${fmt.int(data.total)}` : "No results"}</span>
+        <span class="pager-nav">${link(data.page - 1, "Previous", data.page > 1)}<span class="muted">Page ${fmt.int(data.page)} of ${fmt.int(data.pages)}</span>${link(data.page + 1, "Next", data.page < data.pages)}</span></nav>`;
+    },
+    // items: [[value, label, count?]]. The current one is marked; each links to hrefFor(value).
+    chips: (items, current, hrefFor, label = "Filter") => `<nav class="chips" aria-label="${esc(label)}">${items.map(([v, l, n]) =>
+      `<a class="chip" href="${hrefFor(v)}"${v === current ? ' aria-current="true"' : ""}>${esc(l)}${n != null ? ` <span class="n">${fmt.int(n)}</span>` : ""}</a>`).join("")}</nav>`,
+    tabs: (items, current, hrefFor) => `<nav class="tabs" aria-label="Sections">${items.map(([k, l]) =>
+      `<a href="${hrefFor(k)}"${k === current ? ' aria-current="page"' : ""}>${esc(l)}</a>`).join("")}</nav>`,
+    // pairs: [[label, html]] – values are HTML, so callers escape data.
+    kv: (pairs) => `<dl class="kv">${pairs.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${v == null || v === "" ? '<span class="muted">—</span>' : v}</dd>`).join("")}</dl>`,
+    // Search box that writes ?q= into the address. hrefFor(q) builds the new hash.
+    search: (value, placeholder) => `<form class="tsearch" data-tsearch role="search"><label class="sr" for="tq">${esc(placeholder)}</label>
+      <input class="inp" id="tq" type="search" name="q" value="${esc(value || "")}" placeholder="${esc(placeholder)}" autocomplete="off" /><button class="btn" type="submit">Search</button></form>`,
+    bindSearch(root, hrefFor) {
+      const f = root.querySelector("[data-tsearch]");
+      if (f) f.addEventListener("submit", (e) => { e.preventDefault(); SA.go(hrefFor(f.q.value.trim())); });
+    },
+    select: (id, label, options, value) => `<label class="tsel"><span>${esc(label)}</span><select class="inp" id="${id}">${options.map(([v, l]) =>
+      `<option value="${esc(v)}"${v === value ? " selected" : ""}>${esc(l)}</option>`).join("")}</select></label>`,
   };
+  // Address for a route plus query params; empty values are dropped so URLs stay short.
+  SA.hashFor = (path, params = {}) => {
+    const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== "")).toString();
+    return "#/" + path + (qs ? "?" + qs : "");
+  };
+  // Safe external link: only http(s), opened without referrer or opener.
+  SA.ui.extLink = (url) => /^https?:\/\//i.test(String(url || "")) ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(url)}</a>` : esc(url || "");
 
   // Range selector used by overview and analytics. Today / 7 / 30 / 90 days / This year / All time / Custom.
   const RANGES = [["today", "Today"], ["7d", "7 days"], ["30d", "30 days"], ["90d", "90 days"], ["ytd", "This year"], ["all", "All time"], ["custom", "Custom"]];
@@ -392,6 +440,11 @@
     toggle("#bell", "#bell-pop"); toggle("#me", "#me-pop");
     document.addEventListener("click", (e) => { if (!e.target.closest(".wrap-pop, .search")) closePops(); });
     window.addEventListener("hashchange", SA.render);
+    $("#view").addEventListener("click", (e) => {
+      const tr = e.target.closest("tr[data-href]");
+      if (!tr || e.target.closest("a, button, input, select, label") || getSelection().toString()) return;
+      SA.go(tr.dataset.href);
+    });
     loadBell();
   };
 
