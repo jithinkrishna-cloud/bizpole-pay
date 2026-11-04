@@ -75,7 +75,16 @@
 
     // donut segments
     const R = 70, C = 2 * Math.PI * R; let off = 0;
-    const segs = modes.map(([m, v]) => { const len = v / sum * C, s = `<circle r="${R}" cx="90" cy="90" fill="none" stroke="${DONUT[m] || '#8A858F'}" stroke-width="26" stroke-dasharray="${Math.max(0, len - 2)} ${C}" stroke-dashoffset="${-off}"/>`; off += len; return s; }).join('');
+    // Each segment draws in turn, so the ring fills in one continuous sweep (SWEEP ms in total).
+    const SWEEP = 900;
+    const segs = modes.map(([m, v]) => {
+      const len = v / sum * C, dash = Math.max(0, len - 2);
+      const s = `<circle r="${R}" cx="90" cy="90" fill="none" stroke="${DONUT[m] || '#8A858F'}" stroke-width="26" stroke-dasharray="${dash} ${C}" stroke-dashoffset="${-off}"
+        style="--dash:${dash}px;--c:${C}px;animation-duration:${Math.round(len / C * SWEEP)}ms;animation-delay:${Math.round(off / C * SWEEP) + 150}ms"/>`;
+      off += len; return s;
+    }).join('');
+    // Bars rise one after another; the whole row finishes in about the same time however many days are shown.
+    const barDelay = i => Math.round(i * Math.min(70, 600 / days.length));
 
     return `<div class="hm-hero"><div><h1>Hi ${esc((state.user.name || '').split(' ')[0])} <span aria-hidden="true">👋</span></h1>
         <p class="muted">${isLive() ? 'Your live business at a glance.' : 'Welcome to your test account. Try payments with test cards and UPI.'}</p></div>
@@ -92,7 +101,7 @@
         <div class="card"><div class="between hm-h"><h3><span class="hm-hi">${ic('chart')}</span>Successful transactions trend</h3><span class="chip">Avg ticket&nbsp;<b>${inr(ok.length ? Math.round(sum / ok.length) : 0)}</b></span></div>
           ${ok.length ? `<div class="hm-chart"><div class="ax">${[4, 3, 2, 1, 0].map(k => `<span style="bottom:${k * 25}%">${k ? short(k * step) : '₹0'}</span>`).join('')}</div>
             <div class="plot ${showVals ? '' : 'dense'}">${[4, 3, 2, 1].map(k => `<i class="gl" style="bottom:${k * 25}%"></i>`).join('')}
-            ${days.map(d => `<div class="col">${showVals ? `<span class="bv">${short(d.v)}</span>` : ''}<i class="${d.v === peak && peak ? 'pk' : ''}" style="height:${Math.max(1.5, d.v / top * 100)}%" title="${d.full}: ${inr(d.v)}"></i></div>`).join('')}</div>
+            ${days.map((d, i) => `<div class="col" style="--d:${barDelay(i)}ms">${showVals ? `<span class="bv">${short(d.v)}</span>` : ''}<i class="${d.v === peak && peak ? 'pk' : ''}" style="height:${Math.max(1.5, d.v / top * 100)}%" title="${d.full}: ${inr(d.v)}"></i></div>`).join('')}</div>
             <div class="xl ${showVals ? '' : 'dense'}">${days.map((d, i) => `<span>${i % labelEvery === 0 || i === days.length - 1 ? d.l : ''}</span>`).join('')}</div></div>`
             : `<div class="empty-state" style="flex:1"><div class="box"><i data-icon=chart-column class=li></i></div><div><h3 style="margin:0 0 6px;font-size:18px">No successful payments ${rangeLabel}</h3><p class="muted" style="margin:0 0 12px">${all.length ? 'Pick a longer range to see earlier payments.' : `Your ${isLive() ? 'live' : 'test'} payments will be charted here day by day.`}</p><div class="row" style="gap:8px"><a class="btn sm primary" href="#/links">Create a payment link</a><a class="btn sm" href="#/transactions">View transactions</a></div></div></div>`}</div>
         <div class="card"><div class="hm-h"><h3><span class="hm-hi">${ic('box')}</span>Split by payment mode</h3></div>
@@ -166,6 +175,21 @@
     .hm-chart .bv{font-size:12.5px;font-weight:700;margin-bottom:4px;color:var(--ink)}
     .hm-chart .xl{grid-column:2;display:flex;gap:10px;padding:0 8px}.hm-chart .xl span{flex:1;text-align:center;font-size:13px;color:var(--ink-2)}
     .hm-chart .plot.dense,.hm-chart .xl.dense{gap:3px}.hm-chart .xl.dense span{font-size:11px}
+    /* chart animations */
+    .hm-chart .col i{transform-origin:bottom;animation:hm-grow .75s cubic-bezier(.22,1,.36,1) var(--d) both;transition:filter .15s}
+    .hm-chart .col:hover i{filter:brightness(1.18)}
+    .hm-chart .bv{animation:hm-fade .4s ease calc(var(--d) + .45s) both}
+    .hm-chart .gl{animation:hm-fade .5s ease both}
+    .hm-donut svg circle{animation:hm-draw linear both}
+    .hm-donut .c{animation:hm-pop .5s cubic-bezier(.22,1,.36,1) .2s both}
+    .hm-donut li{animation:hm-fade .4s ease both}
+    .hm-donut li:nth-child(2){animation-delay:.08s}.hm-donut li:nth-child(3){animation-delay:.16s}
+    .hm-donut li:nth-child(4){animation-delay:.24s}.hm-donut li:nth-child(5){animation-delay:.32s}.hm-donut li:nth-child(n+6){animation-delay:.4s}
+    @keyframes hm-grow{from{transform:scaleY(0)}}
+    @keyframes hm-fade{from{opacity:0;transform:translateY(4px)}}
+    @keyframes hm-draw{from{stroke-dasharray:0 var(--c)}to{stroke-dasharray:var(--dash) var(--c)}}
+    @keyframes hm-pop{from{opacity:0;transform:scale(.92)}}
+    @media (prefers-reduced-motion:reduce){.hm-chart *,.hm-donut *{animation:none!important}}
     .hm-donut{display:flex;align-items:center;gap:26px;flex:1;flex-wrap:wrap;justify-content:center}
     .hm-donut .d{position:relative;width:180px;height:180px}
     .hm-donut .c{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
