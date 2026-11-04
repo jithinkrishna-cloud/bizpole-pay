@@ -80,6 +80,25 @@ async function me(auth) {
   };
 }
 
+// Re-entry of the signed-in user's password before a sensitive change (Super Admin Live PayU writes).
+// Shares the login lockout counters, so it can't be used to guess passwords. Writes an audit row on failure.
+async function confirmPassword(ctx, password, action) {
+  const u = await db.one(`SELECT id, "passwordHash", "failedLogins", "lockedUntil" FROM "User" WHERE id=$1`, [ctx.auth.user.id]);
+  if (!u) fail(401, "Please log in again.");
+  if (u.lockedUntil && u.lockedUntil > new Date()) fail(423, "Too many attempts. Try again in a few minutes.");
+  if (!String(password || "")) fail(403, "Enter your password to confirm this change.", { code: "PASSWORD_REQUIRED" });
+  if (!verifyPassword(password, u.passwordHash)) {
+    const n = u.failedLogins + 1;
+    await db.query(
+      `UPDATE "User" SET "failedLogins"=$2, "lockedUntil"=CASE WHEN $2 >= ${MAX_FAILED} THEN now() + interval '${LOCK_MIN} minutes' ELSE NULL END, "updatedAt"=now() WHERE id=$1`,
+      [u.id, n >= MAX_FAILED ? 0 : n]
+    );
+    await audit(db, { userId: u.id, action: "platform.reauth_failed", entity: "User", entityId: u.id, ip: clientIp(ctx.req), meta: { for: action } });
+    fail(403, "That password is not correct.", { code: "PASSWORD_WRONG" });
+  }
+  if (u.failedLogins) await db.query(`UPDATE "User" SET "failedLogins"=0, "updatedAt"=now() WHERE id=$1`, [u.id]);
+}
+
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const normEmail = (e) => String(e || "").trim().toLowerCase();
 const normMobile = (m) => {
@@ -212,4 +231,4 @@ const routes = [
   ["GET", "/auth/me", async (ctx) => me(ctx.auth), { session: true }],
 ];
 
-module.exports = { routes, getAuth, audit, clientIp, me, STEP_KEYS, normEmail, normMobile, EMAIL };
+module.exports = { routes, getAuth, audit, clientIp, confirmPassword, me, STEP_KEYS, normEmail, normMobile, EMAIL };

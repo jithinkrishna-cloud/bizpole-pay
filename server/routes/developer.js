@@ -1,4 +1,4 @@
-// Developer page: PayU credentials, Paynest API keys, webhook endpoints and their deliveries.
+// Developer page: PayU credentials (read-only; managed by Bizpole), Paynest API keys, webhook endpoints and their deliveries.
 const crypto = require("node:crypto");
 const dns = require("node:dns").promises;
 const net = require("node:net");
@@ -46,13 +46,13 @@ const maskKey = (k) => (k.length <= 4 ? "••••" : k.slice(0, 2) + "•".r
 
 async function credentials(merchantId, mode) {
   const rows = await db.query(
-    `SELECT id, "payuMid", "merchantKey", "saltVersion", status, "isDefault", label, "issuedAt", "revokedAt"
+    `SELECT id, "payuMid", "merchantKey", "saltVersion", status, "isDefault", label, source, "issuedAt", "revokedAt"
        FROM "PayuCredential" WHERE "merchantId"=$1 AND mode=$2 ORDER BY "isDefault" DESC, "issuedAt" DESC`,
     [merchantId, mode]
   );
   return rows.map((c) => ({
     id: c.id, mid: String(c.payuMid), key: maskKey(c.merchantKey), saltVersion: c.saltVersion, status: c.status,
-    isDefault: c.isDefault, label: c.label || "", issuedAt: c.issuedAt, revokedAt: c.revokedAt,
+    isDefault: c.isDefault, label: c.label || "", source: c.source, issuedAt: c.issuedAt, revokedAt: c.revokedAt,
   }));
 }
 async function apiKeys(merchantId, mode) {
@@ -124,39 +124,12 @@ module.exports = [
     return { credentials: c, apiKeys: k, webhooks: w, deliveries: d, events: EVENTS };
   }],
 
-  // Merchant's own PayU test credentials. Becomes the default test credential; the salt is stored encrypted and never returned.
+  // PayU credentials are managed by Bizpole (Super Admin → organisation → PayU accounts). This endpoint stays so older
+  // clients get a clear answer, and each attempt is recorded (docs/PAYU_PROVIDER_CONFIG.md §5.4).
   ["POST", "/developer/credentials", async (ctx) => {
-    requireDev(ctx);
-    if (ctx.mode !== "TEST") fail(400, "Only test credentials can be added here. Live credentials are issued when your account goes live.");
-    const mid = String(ctx.body.payuMid || "").trim(), key = String(ctx.body.merchantKey || "").trim(), salt = String(ctx.body.salt || "").trim();
-    const label = String(ctx.body.label || "").trim().slice(0, 60) || "Test MID";
-    if (!/^\d{4,12}$/.test(mid)) fail(400, "Enter the numeric PayU merchant ID (MID).", { field: "mid" });
-    if (!/^[A-Za-z0-9]{4,32}$/.test(key)) fail(400, "Enter the PayU merchant key (letters and digits).", { field: "key" });
-    if (salt.length < 16 || salt.length > 512 || /\s/.test(salt)) fail(400, "Enter the PayU salt exactly as shown in your PayU dashboard.", { field: "salt" });
-    const version = salt.length > 32 ? "V2" : "V1";
-    const id = await db.tx(async (c) => {
-      const same = await c.one(`SELECT id, "merchantId" FROM "PayuCredential" WHERE mode='TEST' AND "merchantKey"=$1 AND "saltVersion"=$2`, [key, version]);
-      if (same && same.merchantId !== ctx.auth.merchantId) fail(409, "This PayU key is already linked to another Paynest account.");
-      await c.q(`UPDATE "PayuCredential" SET "isDefault"=false WHERE "merchantId"=$1 AND mode='TEST' AND "isDefault"`, [ctx.auth.merchantId]);
-      if (same) {
-        // Same key and salt version: replace the stored salt and make it the default again.
-        await c.q(
-          `UPDATE "PayuCredential" SET "payuMid"=$2, "saltEnc"=$3, status='ACTIVE', "isDefault"=true, label=$4, "revokedAt"=NULL WHERE id=$1`,
-          [same.id, Number(mid), encrypt(salt), label]
-        );
-        return same.id;
-      }
-      const nid = db.id();
-      await c.q(
-        `INSERT INTO "PayuCredential" (id,"merchantId",mode,"payuMid","merchantKey","saltVersion","saltEnc",status,"isDefault",label)
-         VALUES ($1,$2,'TEST',$3,$4,$5,$6,'ACTIVE',true,$7)`,
-        [nid, ctx.auth.merchantId, Number(mid), key, version, encrypt(salt), label]
-      );
-      return nid;
-    });
-    await log(ctx, "credential.added", "PayuCredential", id, { payuMid: mid, saltVersion: version });
-    return { credentials: await credentials(ctx.auth.merchantId, "TEST") };
-  }],
+    await log(ctx, "developer.credential_write_blocked", "PayuCredential", null, { mode: ctx.mode });
+    fail(403, "PayU credentials are managed by Bizpole. Contact Bizpole support to add or change them.", { code: "MANAGED_BY_PLATFORM" });
+  }, { anyRole: true }],
 
   ["POST", "/developer/keys", async (ctx) => {
     requireDev(ctx);

@@ -143,6 +143,12 @@ enum SaltVersion {
   V2  // 256-bit salt (PayU recommended)
 }
 
+enum CredentialSource {
+  MERCHANT    // entered by the merchant in Developer (all rows created before Nov 2026)
+  PLATFORM    // assigned by Super Admin, or the shared test credential
+  ONBOARDING  // issued by PayU partner onboarding
+}
+
 enum CredentialStatus {
   ACTIVE
   ROTATING   // new salt issued, not yet activated (PayU: activate within 15 days)
@@ -366,6 +372,10 @@ model User {
   sessions    Session[]
   otpCodes    OtpCode[]
   auditLogs   AuditLog[]
+
+  payuConfigsUpdated     PayuProviderConfig[] @relation("PayuConfigUpdatedBy")
+  payuCredentialsCreated PayuCredential[]     @relation("PayuCredentialCreatedBy")
+  payuCredentialsRevoked PayuCredential[]     @relation("PayuCredentialRevokedBy")
 }
 
 model Session {
@@ -608,6 +618,11 @@ model PayuCredential {
   label        String?
   issuedAt     DateTime         @default(now())
   revokedAt    DateTime?
+  source       CredentialSource @default(MERCHANT)
+  createdById  String?
+  createdBy    User?            @relation("PayuCredentialCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  revokedById  String?
+  revokedBy    User?            @relation("PayuCredentialRevokedBy", fields: [revokedById], references: [id], onDelete: SetNull)
 
   transactions Transaction[]
   settlements  Settlement[]
@@ -617,6 +632,31 @@ model PayuCredential {
   @@unique([mode, merchantKey, saltVersion])
   @@unique([id, merchantId, mode])
   @@index([merchantId, mode])
+}
+
+// Platform-level PayU settings, one row per mode, edited in Super Admin → Integrations → PayU settings.
+// Secrets (*Enc) are AES-256-GCM (server/secrets.js) and never leave the server. Null URL = built-in default.
+// CHECK constraints (migration 20261104000000): partner ID/secret together, default credential all-or-none and
+// TEST only, URL overrides limited to https PayU hosts.
+model PayuProviderConfig {
+  id                     String       @id @default(cuid())
+  mode                   Mode         @unique
+  enabled                Boolean      @default(false)
+  partnerClientId        String?
+  partnerClientSecretEnc String?
+  oauthUrl               String?
+  paymentUrl             String?
+  postserviceUrl         String?
+  oneApiUrl              String?
+  defaultMid             Int?
+  defaultKey             String?
+  defaultSaltEnc         String?
+  defaultSaltVersion     SaltVersion?
+  version                Int          @default(1)
+  updatedById            String?
+  updatedBy              User?        @relation("PayuConfigUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
 }
 
 // Aggregator child merchant used for split settlements (create-child-merchant API).

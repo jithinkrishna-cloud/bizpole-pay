@@ -61,7 +61,7 @@ if (!timingSafeEqual(Buffer.from(v1), Buffer.from(expected))) return res.sendSta
     const m = state.mode, dl = deliveries[m], ok = dl.filter(d => d.status === 'DELIVERED').length, def = creds[m].find(c => c.isDefault && c.status === 'ACTIVE');
     return head('Developer', `${isLive() ? 'Live' : 'Test'} mode credentials, API keys and webhooks.`, `<a class="btn" href="#/transactions">View ${isLive() ? 'live' : 'test'} payments</a>`) +
       `<div class="grid g4" style="margin-bottom:16px">
-        <div class="card kpi"><small>PayU credentials</small><b>${def ? 'Active' : 'Not set'}</b><span class="d muted">${def ? 'MID ' + esc(def.mid) + ' · salt ' + def.saltVersion : isLive() ? 'Issued when you go live' : 'Add your PayU test key below'}</span></div>
+        <div class="card kpi"><small>PayU credentials</small><b>${def ? 'Active' : 'Not set'}</b><span class="d muted">${def ? 'MID ' + esc(def.mid) + ' · salt ' + def.saltVersion : isLive() ? 'Issued when you go live' : 'Set up by Bizpole support'}</span></div>
         <div class="card kpi"><small>Active API keys</small><b>${apiKeys[m].length}</b><span class="d muted">${m} mode</span></div>
         <div class="card kpi"><small>Webhook endpoints</small><b>${webhooks[m].length}</b><span class="d muted">${webhooks[m].filter(w => w.active).length} enabled</span></div>
         <div class="card kpi"><small>Webhook success</small><b>${dl.length ? Math.round(ok / dl.length * 100) + '%' : '—'}</b><span class="d muted">${dl.length} deliver${dl.length === 1 ? 'y' : 'ies'} recorded</span></div></div>
@@ -73,14 +73,14 @@ if (!timingSafeEqual(Buffer.from(v1), Buffer.from(expected))) return res.sendSta
     const body = def ? `<label>Merchant ID</label><div class="secret"><code>${esc(def.mid)}</code>${copyBtn(def.mid)}</div>
         <label>Merchant key</label><div class="secret"><code>${esc(def.key)}</code></div>
         <label>Salt</label><div class="secret"><code>••••••••••••••••••••••••••••</code></div>
-        <p class="muted" style="font-size:12.5px;margin:8px 0 0">The salt is stored encrypted and is never shown again, not even to you. To change it, add the credentials again.</p>`
-      : `<div class="empty-state" style="padding:18px 8px;text-align:center"><b>No ${state.mode} credentials yet</b><p class="muted" style="font-size:13px;margin:6px 0 0">${isLive() ? 'Live PayU credentials are issued when your account goes live.' : 'Add the MID, key and salt from your PayU test dashboard so test payments, refunds and links can reach PayU.'}</p></div>`;
+        <p class="muted" style="font-size:12.5px;margin:8px 0 0">The salt is stored encrypted and is never shown, not even to you.</p>`
+      : `<div class="empty-state" style="padding:18px 8px;text-align:center"><b>No ${state.mode} credentials yet</b><p class="muted" style="font-size:13px;margin:6px 0 0">${isLive() ? 'Live PayU credentials are issued when your account goes live.' : 'Bizpole support links a PayU test account to your organization so test payments, refunds and links can reach PayU.'}</p></div>`;
     return `<div class="card"><div class="between"><h3>Payment gateway credentials (${state.mode})</h3>${def ? `<span class="pill brand">Salt ${def.saltVersion}</span>` : ''}</div>
       <p class="muted" style="font-size:13px;margin-top:0">Used only by Bizpole Pay's servers to sign requests to PayU. Never put the salt in an app or website.</p>
       ${body}
       ${others.length ? `<h4 style="margin:16px 0 4px;font-size:13px">Other credentials</h4><div class="tbl-wrap"><table><thead><tr><th>MID</th><th>Key</th><th>Salt</th><th>Status</th><th>Added</th></tr></thead><tbody>
         ${others.map(c => `<tr><td class="mono">${esc(c.mid)}</td><td class="mono">${esc(c.key)}</td><td>${c.saltVersion}</td><td>${statusPill(c.status === 'ACTIVE' ? 'INACTIVE' : c.status)}</td><td>${day(c.issuedAt)}</td></tr>`).join('')}</tbody></table></div>` : ''}
-      ${!isLive() && canWrite() ? `<button class="btn ${def ? '' : 'primary'}" id="dv-addcred" style="margin-top:14px;align-self:flex-start">${def ? 'Replace test credentials' : '+ Add PayU test credentials'}</button>` : ''}</div>`;
+      <div style="margin-top:14px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);font-size:13px;color:var(--ink-2)">PayU credentials are managed by Bizpole. To add, replace or rotate them, contact Bizpole support.</div></div>`;
   }
 
   const VIEW = {
@@ -124,29 +124,6 @@ if (!timingSafeEqual(Buffer.from(v1), Buffer.from(expected))) return res.sendSta
     bindCopy($('#modal'));
   }
 
-  function credDialog(){
-    openModal(`<div class="between"><h2 style="margin:0;font-size:20px">PayU test credentials</h2>${x}</div>
-      <p class="muted" style="font-size:13px">Copy these from your PayU test dashboard. They become the default for test mode. The salt is encrypted and can't be viewed again.</p>
-      <label>Merchant ID (MID)</label><input id="pc-mid" inputmode="numeric" autocomplete="off" class="mono">
-      <label>Merchant key</label><input id="pc-key" autocomplete="off" class="mono">
-      <label>Salt</label><input id="pc-salt" type="password" autocomplete="off" class="mono"><span class="muted" style="font-size:12px">Salts longer than 32 characters are saved as version 2.</span>
-      <label>Label <span class="muted" style="font-weight:500">(optional)</span></label><input id="pc-label" placeholder="Test MID" maxlength="60">
-      <span id="pc-err" style="color:var(--bad);font-size:12.5px;display:block;margin-top:8px"></span>
-      <div class="row" style="margin-top:10px"><button class="btn" onclick="closeAll()">Cancel</button><button class="btn primary" id="pc-go">Save credentials</button></div>`);
-    $('#pc-go').onclick = async () => {
-      const b = $('#pc-go'), body = { payuMid: $('#pc-mid').value.trim(), merchantKey: $('#pc-key').value.trim(), salt: $('#pc-salt').value.trim(), label: $('#pc-label').value.trim() };
-      if (!/^\d{4,12}$/.test(body.payuMid)) return void ($('#pc-err').textContent = 'Enter the numeric MID.');
-      if (!body.merchantKey) return void ($('#pc-err').textContent = 'Enter the merchant key.');
-      if (body.salt.length < 16) return void ($('#pc-err').textContent = 'Enter the full salt.');
-      busy(b, true);
-      try {
-        await api('/developer/credentials', { method: 'POST', body, mode: 'test' });
-        applyMe(await api('/auth/me', { mode: false }));
-        closeAll(); toast('PayU test credentials saved'); await refresh();
-      } catch (e) { $('#pc-err').textContent = e.message; busy(b, false); }
-    };
-  }
-
   function hookDialog(id){
     const w = id == null ? { url: '', events: ['payment.success', 'payment.failed', 'refund.processed'], active: true } : webhooks[state.mode].find(h => h.id === id);
     if (!w) return;
@@ -187,7 +164,6 @@ if (!timingSafeEqual(Buffer.from(v1), Buffer.from(expected))) return res.sendSta
   const BINDV = {
     keys: () => {
       if (liveLocked()) return;
-      if ($('#dv-addcred')) $('#dv-addcred').onclick = credDialog;
       if ($('#dv-newkey')) $('#dv-newkey').onclick = () => {
         openModal(`<div class="between"><h2 style="margin:0;font-size:20px">Create ${state.mode} API key</h2>${x}</div>
           <label>Key name</label><input id="nk-name" placeholder="e.g. Production server" maxlength="60"><span id="nk-err" style="color:var(--bad);font-size:12px"></span>

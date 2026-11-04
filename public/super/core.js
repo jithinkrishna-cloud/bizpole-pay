@@ -49,7 +49,7 @@
   const DEV_API_PORT = "8765";
   SA.API_BASE = /^(127.0.0.1|localhost)$/.test(location.hostname) && location.port !== DEV_API_PORT ? `${location.protocol}//${location.hostname}:${DEV_API_PORT}` : "";
   SA.credentials = SA.API_BASE ? "include" : "same-origin";
-  class ApiError extends Error { constructor(status, message) { super(message); this.status = status; } }
+  class ApiError extends Error { constructor(status, message, data) { super(message); this.status = status; this.field = data && data.field; this.code = data && data.code; } }
   SA.api = async function api(path, params = {}, { method = "GET", body, withMode = true } = {}) {
     const qs = new URLSearchParams();
     if (withMode) qs.set("mode", SA.state.mode);
@@ -62,7 +62,7 @@
     let data = null;
     try { data = await res.json(); } catch {}
     if (res.status === 401) { SA.signedOut(); throw new ApiError(401, "Your session ended. Sign in again."); }
-    if (!res.ok) throw new ApiError(res.status, (data && data.error) || `Request failed (${res.status}).`);
+    if (!res.ok) throw new ApiError(res.status, (data && data.error) || `Request failed (${res.status}).`, data);
     return data;
   };
   SA.rangeParams = () => {
@@ -104,7 +104,7 @@
       ["payments-failed", "Failed payments", "x", 3], ["refunds", "Refunds", "refund", 3], ["refund-requests", "Refund requests", "inbox", 3],
       ["settlements", "Settlements", "bank", 3], ["recon", "Reconciliation", "scale", 4], ["recon-exceptions", "Reconciliation exceptions", "alert", 4]] },
     { id: "integrations", label: "Integrations", items: [
-      ["providers", "Payment providers", "plug", 4], ["provider-accounts", "Provider accounts", "id", 4], ["api-credentials", "API credentials", "key", 4],
+      ["payu-settings", "PayU settings", "tool", 4], ["providers", "Payment providers", "plug", 4], ["provider-accounts", "Provider accounts", "id", 4], ["api-credentials", "API credentials", "key", 4],
       ["webhooks", "Webhook events", "hook", 4], ["webhook-failures", "Webhook failures", "alert", 4], ["integration-health", "Integration health", "heart", 4],
       ["api-activity", "API activity", "terminal", 4]] },
     { id: "security", label: "Monitoring and security", items: [
@@ -317,6 +317,64 @@
     d.addEventListener("cancel", () => resolve(false), { once: true });
     d.showModal();
     d.querySelector('[value="no"]').focus();
+  });
+
+  // Form dialog for write actions. fields: [{ name, label, type?, value?, placeholder?, help?, mono?, required? }] or
+  // { name, label, type: "checkbox", help? }. confirmPassword adds a password field sent as `password`.
+  // onSubmit(values) may throw an ApiError: its message is shown in the dialog, and { field } (if the API sent one)
+  // marks that input. The dialog closes only when onSubmit resolves. Resolves with onSubmit's result, or null on cancel.
+  // Inputs never get browser autofill: secrets use autocomplete="new-password", everything else "off".
+  SA.form = ({ title, intro = "", fields, submitLabel = "Save", danger = false, confirmPassword = false, onSubmit }) => new Promise((resolve) => {
+    const d = $("#dlg");
+    const id = (n) => "f-" + n.replace(/[^a-z0-9]/gi, "-");
+    const input = (f) => f.type === "checkbox"
+      ? `<label class="check"><input type="checkbox" id="${id(f.name)}" name="${esc(f.name)}"${f.value ? " checked" : ""} /><span>${esc(f.label)}${f.help ? `<br><small class="muted">${esc(f.help)}</small>` : ""}</span></label>`
+      : `<label class="field" data-field="${esc(f.name)}"><span>${esc(f.label)}${f.required === false ? ' <small>(optional)</small>' : ""}</span>
+          <input id="${id(f.name)}" name="${esc(f.name)}" type="${f.type === "secret" || f.type === "password" ? "password" : f.type || "text"}"
+            ${f.mono ? 'class="mono"' : ""} value="${esc(f.value ?? "")}" placeholder="${esc(f.placeholder || "")}"
+            autocomplete="${f.type === "secret" || f.type === "password" ? "new-password" : "off"}" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore />
+          ${f.help ? `<small>${esc(f.help)}</small>` : ""}</label>`;
+    const all = confirmPassword
+      ? [...fields, { name: "password", label: "Your password", type: "password", help: "Live changes need your password again." }] : fields;
+    d.className = "wide";
+    d.innerHTML = `<h2>${esc(title)}</h2><form class="dlg-body" novalidate>${intro ? `<p style="margin:0">${esc(intro)}</p>` : ""}
+        <div class="form">${fields.map(input).join("")}${confirmPassword ? `<div class="confirm">${input(all[all.length - 1])}</div>` : ""}<div class="form-err" role="alert"></div></div></form>
+      <div class="dlg-foot"><button type="button" class="btn" value="no">Cancel</button><button type="button" class="btn ${danger ? "danger" : "primary"}" value="yes">${esc(submitLabel)}</button></div>`;
+    const form = d.querySelector("form"), err = d.querySelector(".form-err"), go = d.querySelector('[value="yes"]');
+    let busy = false;
+    const finish = (v) => { d.close(); d.className = ""; resolve(v); };
+    const submit = async () => {
+      if (busy) return;
+      d.querySelectorAll(".field.bad").forEach((x) => x.classList.remove("bad"));
+      err.textContent = "";
+      const values = {};
+      for (const f of all) {
+        const el = form.elements[f.name];
+        values[f.name] = f.type === "checkbox" ? el.checked : el.value.trim();
+        if (f.required && f.type !== "checkbox" && !values[f.name]) {
+          el.closest(".field").classList.add("bad"); el.focus();
+          err.textContent = `${f.label} is required.`;
+          return;
+        }
+      }
+      busy = true; go.disabled = true;
+      try { finish(await onSubmit(values)); }
+      catch (e) {
+        if (e.status === 401) return finish(null);
+        err.textContent = e.message || "That didn't work. Try again.";
+        const name = e.field && e.field.replace(/^default\./, "");
+        const bad = name && (form.elements[name] || form.elements[e.field]);
+        if (bad) { bad.closest(".field")?.classList.add("bad"); bad.focus(); }
+        if (form.elements.password) form.elements.password.value = "";
+      } finally { busy = false; go.disabled = false; }
+    };
+    d.querySelector('[value="no"]').addEventListener("click", () => finish(null));
+    go.addEventListener("click", submit);
+    form.addEventListener("submit", (e) => { e.preventDefault(); submit(); });
+    form.addEventListener("keydown", (e) => { if (e.key === "Enter" && e.target.tagName === "INPUT" && e.target.type !== "checkbox") { e.preventDefault(); submit(); } });
+    d.addEventListener("cancel", () => { d.className = ""; resolve(null); }, { once: true });
+    d.showModal();
+    (form.querySelector("input:not([type=checkbox])") || go).focus();
   });
 
   // ── Header: mode, search, notifications, profile ──

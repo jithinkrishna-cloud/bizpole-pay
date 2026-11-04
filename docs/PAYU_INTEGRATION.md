@@ -15,7 +15,7 @@ Checked against docs.payu.in on 2 Nov 2026. Conflicts and unconfirmed points are
 | Payouts | `uatoneapi.payu.in/payout` | `payout.payumoney.com/payout` | Bearer (`create_payout_transactions`) |
 | Chargebacks | — | `bankportal.payu.in/api/v1/chargebacks` | `X-Optimus-API-Key` |
 
-Per-merchant key and salt are stored in `PayuCredential` (encrypted, with `saltVersion` V1/V2). Platform OAuth clients live only in env/secret manager.
+Per-merchant key and salt are stored in `PayuCredential` (encrypted, with `saltVersion` V1/V2). Platform settings (partner OAuth client, endpoints, shared test credential, on/off per mode) are managed in Super Admin → Integrations → PayU settings and stored encrypted in `PayuProviderConfig`; `PAYU_*` env vars are a fallback (see [PAYU_PROVIDER_CONFIG.md](PAYU_PROVIDER_CONFIG.md)).
 
 ## 2. Hosted checkout
 

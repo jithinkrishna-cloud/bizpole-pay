@@ -213,17 +213,23 @@
     ], o.users, empty("No users", "This organization has no members.")), { sub: `${o.users.length} ${o.users.length === 1 ? "person" : "people"}` });
   }
 
+  const SOURCE = { MERCHANT: "Added by organization", PLATFORM: "Assigned by Bizpole", ONBOARDING: "PayU onboarding" };
   function integrationsTab(o) {
     const i = o.integrations;
-    return ui.panel("PayU credentials", ui.table([
+    const has = (m) => i.credentials.some((c) => c.mode === m && c.isDefault && c.status === "ACTIVE");
+    const actions = `<div class="btn-row"><button class="btn sm" type="button" data-assign="test">${has("TEST") ? "Replace test account" : "Assign test account"}</button>
+      <button class="btn sm" type="button" data-assign="live">${has("LIVE") ? "Replace live account" : "Assign live account"}</button></div>`;
+    return ui.panel("PayU accounts", ui.table([
       { label: "Mode", render: (c) => ui.modeTag(c.mode) },
-      { label: "PayU MID", render: (c) => `<span class="mono">${esc(c.payuMid)}</span>` },
+      { label: "PayU MID", render: (c) => `<span class="mono">${esc(c.payuMid)}</span>${c.label ? `<div class="muted" style="font-size:12px">${esc(c.label)}</div>` : ""}` },
       { label: "Merchant key", render: (c) => `<span class="mono">${esc(c.merchantKey)}</span>` },
       { label: "Salt", render: (c) => `${esc(c.saltVersion)} <span class="muted">(never shown)</span>` },
-      { label: "Status", render: (c) => ui.pill(c.status) },
-      { label: "Default", render: (c) => (c.isDefault ? "Yes" : "") },
+      { label: "Status", render: (c) => ui.pill(c.status) + (c.isDefault ? ' <span class="tag">In use</span>' : "") },
+      { label: "Set up by", render: (c) => esc(SOURCE[c.source] || "—") },
       { label: "Issued", render: (c) => when(c.issuedAt), cls: "nowrap" },
-    ], i.credentials, empty("No PayU credentials", "Credentials are added in the organization's developer settings.")), { sub: "Keys are masked. Salts never leave the server." })
+      { label: "", render: (c) => (c.status === "REVOKED" ? "" : `<button class="btn sm" type="button" data-revoke="${esc(c.id)}" data-mode="${esc(c.mode)}" data-mid="${esc(c.payuMid)}">Revoke</button>`), cls: "r" },
+    ], i.credentials, empty("No PayU accounts", "Assign a test account so this organization can take test payments.")),
+      { sub: "Keys are masked. Salts never leave the server. Live changes ask for your password.", right: actions })
     + ui.panel("Bizpole Pay API keys", ui.table([
       { label: "Name", render: (k) => esc(k.name) },
       { label: "Key prefix", render: (k) => `<span class="mono">${esc(k.prefix)}</span>` },
@@ -241,6 +247,42 @@
       { label: "Failed", align: "r", render: (w) => (w.failed ? `<span style="color:var(--bad)">${fmt.int(w.failed)}</span>` : "0") },
       { label: "Last delivery", render: (w) => (w.lastDeliveryAt ? `<span title="${esc(fmt.dt(w.lastDeliveryAt))} IST">${esc(fmt.ago(w.lastDeliveryAt))}</span>` : '<span class="muted">—</span>'), cls: "nowrap" },
     ], i.webhooks, empty("No webhook endpoints", "The organization hasn't registered a webhook URL.")));
+  }
+
+  // Assign / replace / revoke an organization's PayU account (POST /super/orgs/:id/payu-accounts[/:credId/revoke]).
+  function bindAccounts(view, o) {
+    const base = "/super/orgs/" + encodeURIComponent(o.id) + "/payu-accounts";
+    const done = (r, msg) => { if (r) { SA.toast(msg); SA.render(); } };
+    view.querySelectorAll("[data-assign]").forEach((b) => b.addEventListener("click", async () => {
+      const env = b.dataset.assign, live = env === "live";
+      const current = o.integrations.credentials.find((c) => c.mode === env.toUpperCase() && c.isDefault && c.status === "ACTIVE");
+      done(await SA.form({
+        title: `${current ? "Replace" : "Assign"} ${env} PayU account`,
+        intro: `For ${o.name}. Copy these from the PayU ${env} dashboard for this organization. The salt is encrypted and can't be viewed after saving.`,
+        fields: [
+          { name: "mid", label: "Merchant ID (MID)", mono: true, required: true },
+          { name: "key", label: "Merchant key", mono: true, required: true },
+          { name: "salt", label: "Salt", type: "secret", mono: true, required: true, help: "Salts longer than 32 characters are saved as version 2." },
+          { name: "label", label: "Label", placeholder: live ? "Live MID" : "Test MID", required: false },
+          ...(current ? [{ name: "revokePrevious", label: `Revoke the current account (MID ${current.payuMid})`, type: "checkbox",
+            help: "Otherwise it is kept as an inactive account in this list." }] : []),
+        ],
+        submitLabel: current ? "Replace account" : "Assign account", confirmPassword: live,
+        onSubmit: (v) => SA.api(base, {}, { method: "POST", withMode: false,
+          body: { mode: env, mid: v.mid, key: v.key, salt: v.salt, label: v.label, revokePrevious: !!v.revokePrevious, ...(live ? { password: v.password } : {}) } }),
+      }), `${live ? "Live" : "Test"} PayU account saved`);
+    }));
+    view.querySelectorAll("[data-revoke]").forEach((b) => b.addEventListener("click", async () => {
+      const live = b.dataset.mode === "LIVE";
+      done(await SA.form({
+        title: `Revoke PayU account ${b.dataset.mid}?`,
+        intro: `${o.name} can't use this ${live ? "live" : "test"} account any more. Payments already made are not affected.`,
+        fields: [{ name: "reason", label: "Reason", required: false, placeholder: "For example: salt rotated" }],
+        submitLabel: "Revoke", danger: true, confirmPassword: live,
+        onSubmit: (v) => SA.api(`${base}/${encodeURIComponent(b.dataset.revoke)}/revoke`, {}, { method: "POST", withMode: false,
+          body: { reason: v.reason, ...(live ? { password: v.password } : {}) } }),
+      }), "PayU account revoked");
+    }));
   }
 
   // Tabs backed by paged platform endpoints, filtered to this organization (and the header's mode).
@@ -319,6 +361,7 @@
       if (body === null) return;
     } else body = { overview: overviewTab, business: businessTab, documents: documentsTab, users: usersTab, integrations: integrationsTab }[tab](o);
     view.innerHTML = header + tabs + body;
+    if (tab === "integrations") bindAccounts(view, o);
     // On narrow screens the tab bar scrolls sideways; keep the open tab visible.
     const on = view.querySelector(".tabs a[aria-current]"), bar = view.querySelector(".tabs");
     if (on && bar.scrollWidth > bar.clientWidth) bar.scrollLeft = on.offsetLeft - (bar.clientWidth - on.offsetWidth) / 2;
