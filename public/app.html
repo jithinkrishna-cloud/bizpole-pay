@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,500;1,6..72,500&family=JetBrains+Mono:wght@400;500&display=swap"
       rel="stylesheet"
     />
     <style>
@@ -388,17 +388,17 @@
       }
       .logo {
         display: flex;
-        align-items: center;
-        gap: 9px;
-        font-weight: 700;
-        font-size: 18px;
-        letter-spacing: -0.02em;
+        align-items: baseline;
+        gap: 0.28em;
+        font-family: "Newsreader", Georgia, serif;
+        font-weight: 500;
+        font-size: 24px;
+        letter-spacing: -0.025em;
+        line-height: 1;
       }
-      .logo i {
-        width: 36px;
-        height: 36px;
-        flex: none;
-        background: url(logo.svg) center / contain no-repeat;
+      .logo em {
+        font-style: italic;
+        color: var(--brand);
       }
 
       /* ---------- auth ---------- */
@@ -1540,7 +1540,7 @@
       window.addEventListener("hashchange", route);
 
       /* ---------- auth pages ---------- */
-      const authArt = `<div class="auth-art"><a class="logo" href="index.html"><i></i>Bizpole Pay</a>
+      const authArt = `<div class="auth-art"><a class="logo" href="index.html">Bizpole <em>Pay</em></a>
   <div><h1>Every rupee,<br>accounted for.</h1><p>Collect payments over UPI, cards, net banking and wallets. Track settlements and refunds in one place.</p></div>
   <p class="mono" style="opacity:.6">Payments processed by PayU</p></div>`;
       const formErr = `<p id="ferr" role="alert" style="color:var(--bad);font-size:13px;min-height:18px;margin:8px 0 0"></p>`;
@@ -1693,7 +1693,7 @@
               .join("")
         ).join("");
         return `<div class="shell">
-    <aside id="aside"><a class="logo" href="#/home" style="padding:4px 10px 6px"><i></i>Bizpole Pay</a>${nav}</aside>
+    <aside id="aside"><a class="logo" href="#/home" style="padding:4px 10px 6px">Bizpole <em>Pay</em></a>${nav}</aside>
     <div>
       <div class="top">
         <button class="menu-btn" id="menu" aria-label="Menu">☰</button>

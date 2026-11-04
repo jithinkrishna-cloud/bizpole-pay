@@ -8,7 +8,7 @@
 <link rel="icon" type="image/svg+xml" href="logo.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,500;1,6..72,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root{
     /* Brand: Charcoal #211F24 · Coral #E65F55 · Solar yellow #F1C64B · Warm paper #F6F4EF */
@@ -61,8 +61,8 @@
   .notice a{color:var(--sun);font-weight:600}
   header{position:sticky;top:0;z-index:30;background:rgba(246,244,239,.9);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
   .nav{display:flex;align-items:center;gap:32px;height:70px}
-  .logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:20px;letter-spacing:-.02em}
-  .logo i{width:42px;height:42px;background:url(logo.svg) center/contain no-repeat;display:block;flex:none}
+  .logo{display:flex;align-items:baseline;gap:.28em;font-family:"Newsreader",Georgia,serif;font-weight:500;font-size:27px;letter-spacing:-.025em;line-height:1}
+  .logo em{font-style:italic;color:var(--brand)}
   .menu{display:flex;gap:4px;list-style:none;margin:0;padding:0;font-weight:500;color:var(--ink-2)}
   .menu > li{position:relative}
   .menu > li > a,.menu > li > button{display:flex;align-items:center;gap:6px;padding:10px 12px;border-radius:8px;background:none;border:0;font:inherit;color:inherit;cursor:pointer}
@@ -369,7 +369,7 @@
 
 <header>
   <nav class="wrap nav" id="nav" aria-label="Main">
-    <a class="logo" href="#top"><i></i>Bizpole Pay</a>
+    <a class="logo" href="#top">Bizpole <em>Pay</em></a>
     <ul class="menu">
       <li>
         <button type="button" id="prod-btn" aria-expanded="false" aria-controls="mega">Products <svg width="14" height="14"><use href="#i-chev"/></svg></button>
@@ -752,7 +752,7 @@ res.redirect(order.checkout_url);
   <div class="wrap">
     <div class="foot-grid">
       <div>
-        <a class="logo" href="#top"><i></i>Bizpole Pay</a>
+        <a class="logo" href="#top">Bizpole <em>Pay</em></a>
         <p style="margin-top:14px;max-width:34ch">Payments for Indian businesses. Payments processed by PayU, an RBI-authorised payment aggregator.</p>
       </div>
       <div><h4>Products</h4><ul><li><a href="#collect">Online checkout</a></li><li><a href="#collect">Payment links</a></li><li><a href="#collect">Subscriptions</a></li><li><a href="#collect">Split settlements</a></li><li><a href="#operations">Payouts</a></li></ul></div>
