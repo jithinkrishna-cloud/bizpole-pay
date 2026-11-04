@@ -11,7 +11,7 @@
     <link rel="icon" type="image/svg+xml" href="logo.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,500;1,6..72,500&display=swap" rel="stylesheet" />
     <style>
       :root {
         /* Bizpole Pay brand (docs/PAGE_BUILD_GUIDE.md): charcoal foundation, warm paper, coral for actions, solar yellow for emphasis. */
@@ -50,9 +50,11 @@
       body.collapsed { --side: 64px; }
       .side { background: var(--nav); color: var(--nav-ink); position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
       .brand { display: flex; align-items: center; gap: 10px; padding: 16px 16px 14px; border-bottom: 1px solid var(--nav-line); min-height: 60px; }
-      .brand-mark { width: 26px; height: 26px; flex: none; border-radius: 8px; background: linear-gradient(135deg, var(--yellow) 0 50%, var(--accent) 50% 100%); box-shadow: inset 0 0 0 2px rgba(33, 31, 36, 0.08); }
+      .brand-mark { display: none; width: 30px; height: 30px; flex: none; border-radius: 8px; background: url(logo.svg) center / contain no-repeat; box-shadow: inset 0 0 0 1px rgba(246, 244, 239, 0.12); }
+      body.collapsed .brand-mark { display: block; }
       .brand-text { line-height: 1.15; white-space: nowrap; }
-      .brand-text b { display: block; font-weight: 700; color: #f6f4ef; font-size: 16px; letter-spacing: -0.02em; }
+      .brand-text b { display: block; font-family: "Newsreader", Georgia, serif; font-weight: 500; color: #f6f4ef; font-size: 23px; line-height: 1.05; letter-spacing: -0.025em; }
+      .brand-text b em { font-style: italic; color: var(--accent); }
       .brand-text span { font-size: 12px; color: var(--nav-muted); }
       .nav { flex: 1; overflow-y: auto; padding: 8px 8px 16px; scrollbar-width: thin; scrollbar-color: var(--nav-3) transparent; }
       .nav-group { margin-top: 10px; }
@@ -292,6 +294,7 @@
         body.nav-open .side { transform: none; box-shadow: var(--shadow-pop); }
         body.nav-open .scrim { display: block; }
         body.collapsed .brand-text, body.collapsed .nav li a span, body.collapsed .nav-group > button span, body.collapsed .nav-group > button .chev { display: initial; }
+        body.collapsed .brand-mark { display: none; }
         .side-foot { display: none; }
         .icon-btn.menu-btn { display: grid; }
         .g2, .g3 { grid-template-columns: minmax(0, 1fr); }
@@ -327,7 +330,7 @@
       <aside class="side" id="side" aria-label="Control centre navigation">
         <div class="brand">
           <div class="brand-mark" aria-hidden="true"></div>
-          <div class="brand-text"><b>Bizpole Pay</b><span>Control centre</span></div>
+          <div class="brand-text"><b>Bizpole <em>Pay</em></b><span>Control centre</span></div>
         </div>
         <nav class="nav" id="nav"></nav>
         <div class="side-foot">
