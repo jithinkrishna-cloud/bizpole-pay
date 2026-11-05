@@ -5,7 +5,7 @@
   const STATUSES = ['QUEUED', 'SCHEDULED', 'IN_PROGRESS', 'PENDING', 'WAITING_FOR_RETRY', 'SUCCESS', 'FAILED', 'REVERSED'];
   const OPEN = ['QUEUED', 'SCHEDULED', 'IN_PROGRESS', 'PENDING', 'WAITING_FOR_RETRY'];
   const XMODES = ['IMPS', 'NEFT', 'RTGS', 'UPI'];
-  const FEE = { IMPS: 500, NEFT: 300, RTGS: 2000, UPI: 400 }; // published per-payout fee in paise, plus 18% GST (estimate; the actual fee comes back from PayU)
+  const FEE = { IMPS: 500, NEFT: 300, RTGS: 2000, UPI: 400 }; // published per-payout fee in paise, plus 18% GST (estimate; the actual fee comes back from the payouts service)
   const LIMIT = { IMPS: [100, 50000000], NEFT: [100, 1000000000], RTGS: [20000000, 1000000000], UPI: [100, 10000000] };
   const PCLS = { SUCCESS: 'ok', FAILED: 'bad', REVERSED: 'bad', QUEUED: 'warn', SCHEDULED: 'brand', IN_PROGRESS: 'warn', PENDING: 'warn', WAITING_FOR_RETRY: 'warn' };
   const tc = s => String(s).replace(/_/g, ' ').toLowerCase().replace(/^./, c => c.toUpperCase());
@@ -17,7 +17,7 @@
   const dest = b => b.vpa ? b.vpa : b.ifsc ? `${bankOf(b.ifsc)} ••${b.accountLast4}` : '—';
   const beneRef = b => b.payuBeneficiaryId || b.id;
   const feeText = p => p.fee == null ? '—' : inr(p.fee + (p.tax || 0));
-  const SEARCH = [['ref', 'Reference'], ['utr', 'UTR'], ['bene', 'Beneficiary'], ['payuRefId', 'PayU ref']];
+  const SEARCH = [['ref', 'Reference'], ['utr', 'UTR'], ['bene', 'Beneficiary'], ['payuRefId', 'Network reference']];
   const RANGES = [['today', 'Today', null], ['7d', 'Last 7 days', 7], ['30d', 'Last 30 days', 30], ['all', 'All time', null]];
 
   /* ---------- data (from /api/payouts, per mode) ---------- */
@@ -71,7 +71,7 @@
     const s = S(), m30 = s.payouts.filter(p => Date.now() - p.date <= 30 * DAY), ok = m30.filter(p => p.status === 'SUCCESS'), open = s.payouts.filter(p => OPEN.includes(p.status));
     const bad = m30.filter(p => ['FAILED', 'REVERSED'].includes(p.status)), queued = s.payouts.filter(p => p.status === 'QUEUED').length;
     return `<div class="grid g4 kpis">
-      <div class="card po-bal"><small>Payout balance</small><b>Not connected</b><span class="d">The payout wallet is held with PayU Payouts, which isn't connected to this account yet. No balance is shown until it is.</span></div>
+      <div class="card po-bal"><small>Payout balance</small><b>Not connected</b><span class="d">The payout wallet is held with the payouts service, which isn't connected to this account yet. No balance is shown until it is.</span></div>
       <div class="card kpi"><small>Paid out (30 days)</small><b>${inr(ok.reduce((a, p) => a + p.amount, 0))}</b><span class="d muted">${ok.length} payouts · fees ${inr(ok.reduce((a, p) => a + (p.fee || 0) + (p.tax || 0), 0))} incl. GST</span></div>
       <div class="card kpi"><small>In flight</small><b>${inr(open.reduce((a, p) => a + p.amount, 0))}</b><span class="d muted">${open.length} queued, processing or retrying${queued ? ` · ${queued} waiting to be sent` : ''}</span></div>
       <div class="card kpi"><small>Failed or reversed (30 days)</small><b ${bad.length ? 'style="color:var(--bad)"' : ''}>${bad.length}</b><span class="d muted">${inr(bad.reduce((a, p) => a + p.amount, 0))} not paid out</span></div></div>`;
@@ -113,7 +113,7 @@
       return `<tr class="click" data-poid="${esc(p.id)}"><td>${fmtDate(p.date)}</td><td><span class="mono">${esc(p.merchantRefId)}</span>${p.batchId ? `<div class="muted" style="font-size:11.5px">Batch ${esc(p.batchId)}</div>` : ''}</td>
         <td>${esc(b.name || '—')}<div class="muted" style="font-size:12px">${esc(dest(b))}</div></td><td>${p.mode}</td><td class="right"><b>${inr(p.amount)}</b></td><td class="right muted">${feeText(p)}</td>
         <td class="mono">${esc(p.utr || '—')}</td><td>${pill(p.status)}</td></tr>`; }).join('')
-      : `<tr><td colspan="8">${none ? empty('No payouts yet', 'Add a beneficiary, then create your first payout. Payouts are queued here and sent once PayU Payouts is connected.', '<button class="btn sm primary" data-newpo>+ New payout</button>')
+      : `<tr><td colspan="8">${none ? empty('No payouts yet', 'Add a beneficiary, then create your first payout. Payouts are queued here and sent once the payouts service is connected.', '<button class="btn sm primary" data-newpo>+ New payout</button>')
         : empty("We couldn't find any payouts", 'Remove the filters or widen the date range and try again.', '<button class="btn sm" id="po-eclear">Clear filters</button><button class="btn sm" id="po-eall">Show all time</button>')}</td></tr>`}</tbody></table></div>` + pager(list.length);
   }
   function payoutDrawer(id){
@@ -125,11 +125,11 @@
     const dot = n => n > reached ? 'warn" style="opacity:.3' : n === reached && ['FAILED', 'REVERSED'].includes(st) ? 'bad' : n === reached && OPEN.includes(st) ? 'warn' : '';
     openDrawer(`<div class="between"><div><div class="muted" style="font-size:12.5px">Payout to ${esc(b.name || '—')}</div><h2 style="margin:0">${inr(p.amount)}</h2></div><button class="x" onclick="closeAll()"><i data-icon=x class=li></i></button></div>
       <p>${pill(st)} <span class="muted">${fmtDate(p.date)}</span></p>
-      ${st === 'QUEUED' && !p.payuRefId ? `<div class="card" style="background:var(--warn-soft);border-color:transparent;margin-bottom:14px"><b>Not sent yet.</b> This payout is queued in Bizpole Pay. It goes to the bank once PayU Payouts is connected to your account.</div>` : ''}
+      ${st === 'QUEUED' && !p.payuRefId ? `<div class="card" style="background:var(--warn-soft);border-color:transparent;margin-bottom:14px"><b>Not sent yet.</b> This payout is queued in Bizpole Pay. It goes to the bank once the payouts service is connected to your account.</div>` : ''}
       ${['FAILED', 'REVERSED'].includes(st) ? `<div class="card" style="background:var(--bad-soft);border-color:transparent;margin-bottom:14px"><b>${st === 'FAILED' ? 'Failure reason' : 'Reversal'}:</b> ${esc(p.failureReason || 'not reported')}.</div>` : ''}
-      <h3>Payout</h3><dl class="kv"><dt>Reference</dt><dd class="mono">${esc(p.merchantRefId)}</dd><dt>PayU reference</dt><dd class="mono">${esc(p.payuRefId || '—')}</dd><dt>UTR</dt><dd class="mono">${esc(p.utr || '—')}</dd>
+      <h3>Payout</h3><dl class="kv"><dt>Reference</dt><dd class="mono">${esc(p.merchantRefId)}</dd><dt>Network reference</dt><dd class="mono">${esc(p.payuRefId || '—')}</dd><dt>UTR</dt><dd class="mono">${esc(p.utr || '—')}</dd>
         <dt>Mode</dt><dd>${p.mode}</dd><dt>Purpose</dt><dd>${esc(p.purpose || '—')}</dd>${p.batchId ? `<dt>Batch</dt><dd class="mono">${esc(p.batchId)}</dd>` : ''}<dt>Created by</dt><dd>${esc(p.createdBy || '—')}</dd></dl>
-      <h3 style="margin-top:18px">Charges</h3><dl class="kv"><dt>Amount</dt><dd>${inr(p.amount)}</dd>${p.fee == null ? `<dt>Fee</dt><dd class="muted">Reported by PayU when the payout is processed</dd>`
+      <h3 style="margin-top:18px">Charges</h3><dl class="kv"><dt>Amount</dt><dd>${inr(p.amount)}</dd>${p.fee == null ? `<dt>Fee</dt><dd class="muted">Reported by the payouts service when the payout is processed</dd>`
         : `<dt>Fee</dt><dd>${inr(p.fee)}</dd><dt>GST</dt><dd>${inr(p.tax || 0)}</dd><dt>Total debited</dt><dd><b>${inr(p.amount + p.fee + (p.tax || 0))}</b></dd>`}</dl>
       <h3 style="margin-top:18px">Beneficiary</h3><dl class="kv"><dt>Name</dt><dd>${esc(b.name || '—')}</dd>${b.vpa ? `<dt>VPA</dt><dd class="mono">${esc(b.vpa)}</dd>` : `<dt>Account</dt><dd class="mono">••••${esc(b.accountLast4 || '')}</dd><dt>IFSC</dt><dd class="mono">${esc(b.ifsc || '—')} · ${bankOf(b.ifsc)}</dd>`}<dt>Beneficiary ID</dt><dd class="mono">${esc(b.payuBeneficiaryId || '—')}</dd></dl>
       <h3 style="margin-top:18px">Timeline</h3>${steps.map(([s, n, sub]) => `<p style="font-size:13px;margin:6px 0"><span class="dot ${dot(n)}"></span>${s}${sub ? ` <span class="muted">· ${esc(sub)}</span>` : ''}</p>`).join('')}
@@ -149,7 +149,7 @@
     if (!benes.length) { toast('Add a beneficiary first'); show('b'); return; }
     const sel = (benes.find(b => b.id === pre.beneficiaryId) || benes.find(b => b.verified) || benes[0]).id;
     openModal(`<div class="between"><h2 style="margin:0;font-size:20px">New payout</h2><button class="x" onclick="closeAll()"><i data-icon=x class=li></i></button></div>
-      <p class="muted" style="margin-bottom:0">The payout is queued in Bizpole Pay and sent to the bank once PayU Payouts is connected to your account.</p>
+      <p class="muted" style="margin-bottom:0">The payout is queued in Bizpole Pay and sent to the bank once the payouts service is connected to your account.</p>
       <label>Beneficiary</label><select id="np-b">${benes.map(b => `<option value="${esc(b.id)}" ${b.id === sel ? 'selected' : ''}>${esc(b.name)} · ${esc(dest(b))}${b.verified ? '' : ' (unverified)'}</option>`).join('')}</select>
       <div class="row"><div><label>Amount (₹)</label><input id="np-a" type="number" min="1" step="0.01" value="${pre.amount ? (pre.amount / 100).toFixed(2) : ''}" placeholder="0.00"></div>
         <div><label>Mode</label><select id="np-m">${XMODES.map(m => `<option ${m === pre.mode ? 'selected' : ''}>${m}</option>`).join('')}</select></div></div>
@@ -231,7 +231,7 @@
         <td>${b.verified ? '<span class="pill ok">Verified</span>' : '<span class="pill warn">Unverified</span>'}</td>
         <td class="right"><span class="row" style="gap:6px;justify-content:flex-end;flex-wrap:nowrap">${b.verified ? '' : `<button class="btn sm" onclick="payouts_verify('${esc(b.id)}')">Verify</button>`}<button class="btn sm ${b.verified ? '' : 'primary'}" data-pay="${esc(b.id)}">Pay</button></span></td></tr>`).join('')
       : `<tr><td colspan="9">${all.length ? empty('No matching beneficiaries', 'Try another name, ID or IFSC, or show all beneficiaries.', '<button class="btn sm" id="po-bclear">Clear search</button>')
-        : empty('No beneficiaries yet', 'Add the bank account or UPI ID you want to pay. It is verified with PayU before money moves.', '<button class="btn sm primary" data-addbene>+ Add beneficiary</button>')}</td></tr>`}</tbody></table></div>`;
+        : empty('No beneficiaries yet', 'Add the bank account or UPI ID you want to pay. It is verified with our payment partner before money moves.', '<button class="btn sm primary" data-addbene>+ Add beneficiary</button>')}</td></tr>`}</tbody></table></div>`;
   }
 
   /* ---------- Bulk upload tab ---------- */

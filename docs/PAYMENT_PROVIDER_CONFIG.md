@@ -1,8 +1,48 @@
-# PayU provider configuration: schema and migration plan
+# Payment provider configuration: schema and migration plan
 
-Status: **approved 4 Nov 2026; implemented.** The migration file exists but has **not been applied** to any database.
+Status: **approved 4 Nov 2026; implemented.** Migration 20261104000000 is applied to production. Migration
+20261105000000 (provider-neutral settings, section 0) is approved and implemented but **not applied yet**.
 Decisions (section 8): keep the shared test credential; keep env fallback; password re-entry for Live only; skip the optional data update.
 Date: 4 Nov 2026
+
+## 0. Stage 1: provider-neutral settings (supersedes the PayU-only table below)
+
+Requested 4 Nov 2026: "not for PayU, don't hardcode; we may change the provider". Approved the same day.
+
+- **Provider definitions** live in `server/providers/<id>.js` (today: `payu.js`), listed in `server/providers/index.js`.
+  Each declares its name, settings groups and fields (text / secret / url, environment variable names, defaults per mode),
+  allowed address hosts, the per-organisation account fields and validation, the shared test account, and a connection test.
+  Adding a provider means adding one file; no UI or schema change.
+- **Table `PaymentProvider`** (migration `20261105000000_payment_provider`): one row per (provider, mode) with
+  `enabled`, `isActive` (partial unique index: one active provider per mode), `settings` jsonb (non-secret values) and
+  `secretsEnc` jsonb (`{ field: AES-256-GCM ciphertext }`). The migration copies the `PayuProviderConfig` rows and leaves that
+  table in place, unused, for the app version deployed before it; a later cleanup migration drops it.
+  Address hosts are checked per provider in the app (`server/providers/config.js` `cleanUrl`), not by a database CHECK.
+- **`PayuCredential`** gains `provider` (default `'payu'`) and `extraEnc`. The table and its PayU-named columns are renamed in stage 2.
+- **Super Admin**: Integrations → **Provider settings** (Test / Live tabs, active provider per mode, groups and fields from the
+  definition). Organisation → API integrations → **Provider accounts** (form fields from the active provider's definition).
+  API: `/super/provider-settings[/:provider/:mode[/test]]`, `/super/orgs/:id/provider-accounts[/:credId/revoke]`.
+- **Audit actions**: `platform.provider_config.updated | activated | tested`, `platform.provider_account.assigned | revoked`
+  (meta includes `provider`). Older rows keep the `platform.payu_*` names.
+- **Stage 2 (not started)**: checkout, refunds, payouts, links, subscriptions and webhooks call a common provider interface
+  instead of PayU code directly; rename `PayuCredential` to a neutral name. To be designed once the second provider is chosen.
+
+### 0.1 Provider connections added from Super Admin (approved 4 Nov 2026)
+
+- **`ProviderConnection`** (migration `20261106000000_provider_connections`): a named instance of a provider type
+  (`provider` = file in `server/providers/`). Super Admin → Provider settings → **Add provider** creates one; it can be
+  renamed, and removed (archived) when it isn't active in either mode. Names are unique among non-archived connections.
+- **`PaymentProvider`** rows now belong to a connection (`connectionId`, unique per mode); `isActive` still allows one
+  active row per mode. Test and Live can use different connections and can be switched at any time (Live needs the password).
+- The migration created the connection **"PayU"** with `envFallback = true` and attached the existing rows. Only that
+  connection reads `PAYU_*` environment variables, and it is active in any mode where no connection was chosen explicitly.
+- Organisation accounts stay per provider type, so switching between two connections of the same type needs no new accounts.
+- API: `GET /super/provider-settings`, `POST /super/provider-connections`, `POST /super/provider-connections/:id/rename|archive`,
+  `PUT /super/provider-connections/:id/:mode`, `POST /super/provider-connections/:id/:mode/test`.
+- Audit: `platform.provider_connection.created | renamed | archived`, `platform.provider_config.updated | activated | tested`.
+
+Deploy order: `npm run db:migrate` (applies 20261105000000 and 20261106000000), then deploy the app. Before the migration, the settings page
+falls back to environment variables and saving returns "migration hasn't been applied".
 
 ## 1. Goal
 

@@ -11,7 +11,7 @@
   const FAILED_TX = ['FAILED', 'BOUNCED', 'DROPPED', 'USER_CANCELLED'];
   const PER_MONTH = { DAILY: 30, WEEKLY: 52 / 12, MONTHLY: 1, YEARLY: 1 / 12, ADHOC: 0, ONCE: 0 };
   const UNIT = { DAILY: 'day', WEEKLY: 'week', MONTHLY: 'month', YEARLY: 'year', ADHOC: 'charge', ONCE: 'charge' };
-  const SEARCH = [['name', 'Customer name'], ['id', 'Mandate ID'], ['authPayuId', 'authpayuid'], ['email', 'Email']];
+  const SEARCH = [['name', 'Customer name'], ['id', 'Mandate ID'], ['authPayuId', 'Authorisation ID'], ['email', 'Email']];
   const RANGES = [['all', 'All time', null], ['30d', 'Created last 30 days', 30], ['90d', 'Created last 90 days', 90], ['180d', 'Created last 180 days', 180]];
   const URANGES = [['7d', 'Next 7 days', 7], ['14d', 'Next 14 days', 14], ['30d', 'Next 30 days', 30]];
   const PCLS = { ACTIVE: 'ok', SUCCESS: 'ok', SENT: 'ok', PENDING_REGISTRATION: 'warn', PAUSED: 'warn', DUE: 'warn', INITIATED: 'warn', PENDING: 'warn', AUTHORIZED: 'warn',
@@ -32,7 +32,7 @@
   const planOf = m => S().plans.find(p => p.id === m.planId) || null;
   const planName = m => { const p = planOf(m); return p ? p.name : 'No plan'; };
 
-  // The notice for the next debit goes out 48 h ahead; PayU rejects a debit whose notice reached the customer less than 24 h before.
+  // The notice for the next debit goes out 48 h ahead; the payment partner rejects a debit whose notice reached the customer less than 24 h before.
   // Derived from the mandate's nextDebitAt and the PreDebitNotification row for that date, if there is one.
   function upcomingOf(m, plans){
     if (m.status !== 'ACTIVE' || !m.nextDebitAt) return null;
@@ -166,13 +166,13 @@
           <div class="between" style="margin-top:10px;gap:8px"><button class="btn sm" id="sb-freset">Reset</button><button class="btn sm primary" id="sb-fapply">Apply</button></div></div></div>
       <span style="flex:1"></span>
       <button class="btn" id="sb-dl"><i data-icon=download class=li></i> Download CSV</button></div>
-    <div class="tbl-wrap"><table><thead><tr>${sortHead('created', 'Created')}<th>Customer</th><th>Mandate ID · authpayuid</th><th>Plan</th><th>Method</th>${sortHead('amount', 'Max amount', 'right')}<th>Status</th>${sortHead('next', 'Next debit')}</tr></thead>
+    <div class="tbl-wrap"><table><thead><tr>${sortHead('created', 'Created')}<th>Customer</th><th>Mandate ID · Authorisation ID</th><th>Plan</th><th>Method</th>${sortHead('amount', 'Max amount', 'right')}<th>Status</th>${sortHead('next', 'Next debit')}</tr></thead>
     <tbody>${rows.length ? rows.slice((sv.page - 1) * PAGE_SIZE, sv.page * PAGE_SIZE).map(m => {
       return `<tr class="click" data-mid="${esc(m.id)}"><td>${day(m.createdAt)}</td><td><b style="font-weight:600">${esc(m.name)}</b><div class="muted" style="font-size:12px">${esc(m.email)}</div></td>
         <td><span class="mono">${esc(m.id)}</span><div class="mono muted" style="font-size:11.5px">${esc(m.authPayuId || 'not registered yet')}</div></td>
         <td>${esc(planName(m))}<div class="muted" style="font-size:12px">${tc(m.cycle)}</div></td><td>${methodLabel(m.method)}</td><td class="right"><b>${inr(m.maxAmount)}</b>${m.billingRule ? `<div class="muted" style="font-size:11.5px">UPI rule: ${esc(m.billingRule)}</div>` : ''}</td>
         <td>${pill(m.status)}</td><td>${m.nextDebitAt ? fmtDate(m.nextDebitAt) : '<span class="muted">—</span>'}</td></tr>`; }).join('')
-      : none ? emptyRow(8, 'No subscribers yet', 'A subscriber appears here once a customer starts a mandate registration payment through PayU for one of your plans.', '<button class="btn sm" data-st2="plans">Go to plans</button>')
+      : none ? emptyRow(8, 'No subscribers yet', 'A subscriber appears here once a customer starts a mandate registration payment for one of your plans.', '<button class="btn sm" data-st2="plans">Go to plans</button>')
       : emptyRow(8, "We couldn't find any mandates", 'Remove the filters or widen the date range and try again.', '<button class="btn sm" id="sb-eclear">Clear filters</button><button class="btn sm" id="sb-eall">Show all time</button>')}</tbody></table></div>` + pager(rows.length);
   }
 
@@ -184,7 +184,7 @@
   const canSend = u => ['SCHEDULED', 'DUE', 'FAILED'].includes(u.status);
   function renderUp(){
     const rows = upRows(), nF = sv.ustatus.length, attn = rows.filter(m => ATTN.includes(m.upcoming.status));
-    return `<div class="card sb-rule"><div class="tile"><div class="ic"><i data-icon=timer class=li></i></div><div><b>Pre-debit notices</b><p>Bizpole Pay asks PayU to notify the customer 48 h before each debit. A debit only runs if its notice reached the customer at least 24 h earlier; a missed notice moves the debit out.</p></div></div>
+    return `<div class="card sb-rule"><div class="tile"><div class="ic"><i data-icon=timer class=li></i></div><div><b>Pre-debit notices</b><p>Bizpole Pay asks the payment partner to notify the customer 48 h before each debit. A debit only runs if its notice reached the customer at least 24 h earlier; a missed notice moves the debit out.</p></div></div>
       <div class="row sb-legend">${NSTATUS.map(s => `<span>${pill(s)} <b>${rows.filter(m => m.upcoming.status === s).length}</b></span>`).join('')}</div></div>
     <div class="toolbar">
       <div class="dd"><button class="btn" data-dd="urange"><i data-icon=calendar class=li></i> ${URANGES.find(r => r[0] === sv.urange)[1]} <i data-icon=chevron-down class=li></i></button>
@@ -203,7 +203,7 @@
         <td>${pill(u.status)}</td><td class="right">${canSend(u) ? `<button class="btn sm" data-send="${esc(m.id)}">${u.status === 'FAILED' ? 'Resend' : 'Send now'}</button>` : '<span class="muted">—</span>'}</td></tr>`; }).join('')
       : emptyRow(9, 'No debits in this window', 'Nothing is due on active mandates in this period. Widen the window or clear the status filter.', '<button class="btn sm" id="sb-u30">Next 30 days</button><button class="btn sm" id="sb-ureset2">Clear filter</button>')}</tbody></table></div>`;
   }
-  // Sends through PayU's pre-debit API on the server; returns false (with a toast) when it can't be sent.
+  // Sends through the gateway's pre-debit API on the server; returns false (with a toast) when it can't be sent.
   async function sendNotice(m){
     const left = (m.upcoming.debitDate - Date.now()) / H;
     if (left < 24) { toast('Too late: the notice must reach the customer 24 h before the debit'); return false; }
@@ -252,7 +252,7 @@
       if ($('#sb-eclear')) { $('#sb-eclear').onclick = () => { sv.status = []; sv.methods = []; sv.plans = []; sv.q = ''; redraw(); }; $('#sb-eall').onclick = () => { sv.range = 'all'; redraw(); }; }
       $('#sb-dl').onclick = () => {
         const q = s => `"${String(s).replace(/"/g, '""')}"`;
-        const rows = subRows(), csv = 'mandate_id,authpayuid,customer,email,plan,method,max_amount,status,next_debit\n' + rows.map(m => [m.id, m.authPayuId || '', q(m.name), q(m.email), q(planName(m)), m.method, (m.maxAmount / 100).toFixed(2), m.status, m.nextDebitAt ? m.nextDebitAt.toISOString() : ''].join(',')).join('\n') + '\n';
+        const rows = subRows(), csv = 'mandate_id,authorisation_id,customer,email,plan,method,max_amount,status,next_debit\n' + rows.map(m => [m.id, m.authPayuId || '', q(m.name), q(m.email), q(planName(m)), m.method, (m.maxAmount / 100).toFixed(2), m.status, m.nextDebitAt ? m.nextDebitAt.toISOString() : ''].join(',')).join('\n') + '\n';
         const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = 'bizpolepay-mandates.csv'; a.click(); toast(`Downloaded ${rows.length} mandates`);
       };
     }
@@ -277,7 +277,7 @@
   function mandateDrawer(id){
     const m = S().mandates.find(x => x.id === id); if (!m) return;
     const p = planOf(m), ok = m.debits.filter(d => d.status === 'SUCCESS');
-    const steps = [['Registration started', true, fmtDate(m.createdAt)], ['Customer authorised via ' + methodLabel(m.method), !!m.authPayuId, m.authPayuId ? 'authpayuid ' + m.authPayuId : 'waiting for the customer'],
+    const steps = [['Registration started', true, fmtDate(m.createdAt)], ['Customer authorised via ' + methodLabel(m.method), !!m.authPayuId, m.authPayuId ? 'Authorisation ID ' + m.authPayuId : 'waiting for the customer'],
       ['First recurring debit', m.debits.length > 0, m.debits.length ? fmtDate(m.debits[0].date) : 'not yet'], [m.status === 'REVOKED' ? 'Cancelled' : m.status === 'EXPIRED' ? 'Expired' : 'Mandate ends', ['REVOKED', 'EXPIRED'].includes(m.status), day(m.endDate)]];
     const up = m.upcoming ? [m.upcoming] : [];
     const notices = [...up, ...m.notices.filter(n => !up.length || n.requestId !== up[0].requestId).slice().reverse()].slice(0, 5);
@@ -285,7 +285,7 @@
       <p>${pill(m.status)} <span class="muted">${p ? `${esc(p.name)} · ${inr(p.amount)} ${per(p)}` : `No plan · ${inr(m.maxAmount)} max ${per(m)}`}</span></p>
       ${m.status === 'PAUSED' ? `<div class="card" style="background:var(--warn-soft);border-color:transparent;margin-bottom:14px"><b>Paused.</b> No debits or notices are sent until you resume.</div>` : ''}
       ${m.status === 'PENDING_REGISTRATION' ? `<div class="card" style="background:var(--warn-soft);border-color:transparent;margin-bottom:14px"><b>Awaiting authorisation.</b> The customer has not completed the registration payment yet.</div>` : ''}
-      <h3>Mandate</h3><dl class="kv"><dt>Mandate ID</dt><dd class="mono">${esc(m.id)}</dd><dt>authpayuid</dt><dd class="mono">${esc(m.authPayuId || '—')}</dd><dt>Registration txn</dt><dd class="mono">${esc(m.registrationTxnId || '—')}</dd>
+      <h3>Mandate</h3><dl class="kv"><dt>Mandate ID</dt><dd class="mono">${esc(m.id)}</dd><dt>Authorisation ID</dt><dd class="mono">${esc(m.authPayuId || '—')}</dd><dt>Registration txn</dt><dd class="mono">${esc(m.registrationTxnId || '—')}</dd>
         <dt>Method</dt><dd>${methodLabel(m.method)}</dd><dt>Max amount</dt><dd>${inr(m.maxAmount)}</dd>${m.billingRule ? `<dt>UPI billing rule</dt><dd>${esc(m.billingRule)} · limit ${esc(m.billingLimit || '—')}</dd>` : ''}
         <dt>Billing</dt><dd>${tc(m.cycle)} · ${every(m)}</dd><dt>Valid</dt><dd>${day(m.startDate)} → ${day(m.endDate)}</dd><dt>Next debit</dt><dd>${m.nextDebitAt ? fmtDate(m.nextDebitAt) : '—'}</dd></dl>
       <h3 style="margin-top:18px">Customer</h3><dl class="kv"><dt>Email</dt><dd>${esc(m.email || '—')}</dd><dt>Phone</dt><dd>${esc(m.phone || '—')}</dd><dt>Collected</dt><dd>${inr(ok.reduce((a, d) => a + d.amount, 0))} over ${ok.length} debits</dd></dl>
@@ -297,12 +297,12 @@
         ${m.status === 'ACTIVE' ? `<button class="btn" onclick="subscriptions_act('${esc(m.id)}','pause')">⏸ Pause</button>` : ''}
         ${m.status === 'PAUSED' ? `<button class="btn primary" onclick="subscriptions_act('${esc(m.id)}','resume')">▶ Resume</button>` : ''}
         ${['ACTIVE', 'PAUSED', 'PENDING_REGISTRATION'].includes(m.status) ? `<button class="btn danger" onclick="subscriptions_act('${esc(m.id)}','cancel')">Cancel mandate</button>` : ''}
-        <button class="btn" onclick="navigator.clipboard&&navigator.clipboard.writeText('${esc(m.authPayuId || m.id)}');toast('Copied')">Copy ${m.authPayuId ? 'authpayuid' : 'mandate ID'}</button></div>`);
+        <button class="btn" onclick="navigator.clipboard&&navigator.clipboard.writeText('${esc(m.authPayuId || m.id)}');toast('Copied')">Copy ${m.authPayuId ? 'authorisation ID' : 'mandate ID'}</button></div>`);
   }
   const ACT = {
     pause: ['Pause this mandate?', 'No debits or pre-debit notices will be sent until you resume. The customer\'s authorisation stays in place.', 'Pause mandate', ''],
     resume: ['Resume this mandate?', 'Billing restarts on the next cycle. A pre-debit notice goes out 48 h before the debit.', 'Resume mandate', 'primary'],
-    cancel: ['Cancel this mandate?', 'PayU will be asked to revoke the mandate. This cannot be undone; the customer must register again to restart.', 'Cancel mandate', 'primary sb-danger'],
+    cancel: ['Cancel this mandate?', 'The payment partner will be asked to revoke the mandate. This cannot be undone; the customer must register again to restart.', 'Cancel mandate', 'primary sb-danger'],
   };
   window.subscriptions_act = (id, act) => {
     const m = S().mandates.find(x => x.id === id), [title, text, label, cls] = ACT[act];

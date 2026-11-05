@@ -152,7 +152,7 @@
     // Volume by mode, stacked per bucket.
     const stacks = bs.map(b => { const o = {}; within(rows, b.from, b.to).filter(ok).forEach(t => o[t.mode] = (o[t.mode] || 0) + t.amount); return o; });
     const byMode = groupBy(rows, t => t.mode), topVol = [...byMode].sort((a, b) => b.gmv - a.gmv)[0];
-    // Known modes first in the usual order, then any other mode PayU reported (BNPL, QR, ...).
+    // Known modes first in the usual order, then any other mode the gateway reported (BNPL, QR, ...).
     const presentModes = [...MODE_ORDER.filter(k => byMode.some(g => g.label === k && g.gmv)), ...byMode.filter(g => g.gmv && !MODE_ORDER.includes(g.label)).map(g => g.label)];
     const MC = modeColors(presentModes);
     const volume = card('Volume by payment mode', 'Successful payment value, stacked by mode', stackedBars(labels, stacks, presentModes, MC),

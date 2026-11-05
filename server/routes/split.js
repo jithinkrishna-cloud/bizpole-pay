@@ -84,6 +84,6 @@ module.exports = [
     );
     if (!held.length) fail(409, "Nothing held to release.");
     await payu.requireCredential(auth.merchantId, mode);
-    fail(501, "Releasing split settlements through PayU isn't connected yet. The splits stay held; nothing was released.");
+    fail(501, "Releasing split settlements isn't connected yet. The splits stay held; nothing was released.");
   }],
 ];

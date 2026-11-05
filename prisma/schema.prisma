@@ -374,6 +374,8 @@ model User {
   auditLogs   AuditLog[]
 
   payuConfigsUpdated     PayuProviderConfig[] @relation("PayuConfigUpdatedBy")
+  providerConfigsUpdated PaymentProvider[]    @relation("PaymentProviderUpdatedBy")
+  providerConnections    ProviderConnection[] @relation("ProviderConnectionCreatedBy")
   payuCredentialsCreated PayuCredential[]     @relation("PayuCredentialCreatedBy")
   payuCredentialsRevoked PayuCredential[]     @relation("PayuCredentialRevokedBy")
 }
@@ -618,6 +620,8 @@ model PayuCredential {
   label        String?
   issuedAt     DateTime         @default(now())
   revokedAt    DateTime?
+  provider    String           @default("payu") // server/providers/<id>.js; CHECK ^[a-z][a-z0-9_]{1,31}$
+  extraEnc    String? // encrypted JSON for provider fields beyond id / key / secret
   source       CredentialSource @default(MERCHANT)
   createdById  String?
   createdBy    User?            @relation("PayuCredentialCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
@@ -634,7 +638,9 @@ model PayuCredential {
   @@index([merchantId, mode])
 }
 
-// Platform-level PayU settings, one row per mode, edited in Super Admin → Integrations → PayU settings.
+// DEPRECATED: replaced by PaymentProvider (migration 20261105000000 copied its rows). No longer read by the app;
+// kept until a cleanup migration drops it, so the app version deployed before that migration keeps working.
+// Platform-level PayU settings, one row per mode.
 // Secrets (*Enc) are AES-256-GCM (server/secrets.js) and never leave the server. Null URL = built-in default.
 // CHECK constraints (migration 20261104000000): partner ID/secret together, default credential all-or-none and
 // TEST only, URL overrides limited to https PayU hosts.
@@ -657,6 +663,46 @@ model PayuProviderConfig {
   updatedBy              User?        @relation("PayuConfigUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   createdAt              DateTime     @default(now())
   updatedAt              DateTime     @updatedAt
+}
+
+// Platform settings per payment provider and mode, edited in Super Admin → Integrations → Provider settings.
+// Which fields exist is defined in server/providers/<provider>.js. settings = non-secret values; secretsEnc =
+// { field: AES-256-GCM ciphertext }, never sent to a browser. One active provider per mode: partial unique index
+// "PaymentProvider_one_active_per_mode" (migration 20261105000000), not expressible in Prisma.
+model PaymentProvider {
+  id           String             @id @default(cuid())
+  connectionId String
+  connection   ProviderConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  provider     String // the connection's type, copied for queries
+  mode         Mode
+  enabled      Boolean            @default(false)
+  isActive     Boolean            @default(false)
+  settings     Json               @default("{}")
+  secretsEnc   Json               @default("{}")
+  version      Int                @default(1)
+  updatedById  String?
+  updatedBy    User?              @relation("PaymentProviderUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@unique([connectionId, mode])
+}
+
+// A named instance of a provider type (server/providers/<provider>.js), added in Super Admin → Provider settings.
+// Holds one PaymentProvider row per mode. Names are unique among non-archived connections (partial index
+// "ProviderConnection_name_active_key", migration 20261106000000). envFallback: the only connection that falls back
+// to the provider's environment variables (at most one).
+model ProviderConnection {
+  id          String            @id @default(cuid())
+  provider    String
+  name        String            @db.VarChar(60)
+  envFallback Boolean           @default(false)
+  archivedAt  DateTime?
+  createdById String?
+  createdBy   User?             @relation("ProviderConnectionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  settings    PaymentProvider[]
 }
 
 // Aggregator child merchant used for split settlements (create-child-merchant API).

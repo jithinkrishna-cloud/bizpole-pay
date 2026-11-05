@@ -181,7 +181,7 @@
         <div class="main"><h4>${L.methods}</h4>
           ${on.length ? on.map(m => `<div class="pm ${m === ui.sel ? 'sel' : ''}" data-pm="${m}"><span class="ic">${METHODS[m].ic}</span><span class="t"><b>${m}</b><small>${METHODS[m].sub}</small></span><span style="color:var(--mu)">${m === ui.sel ? '<i data-icon=chevron-down class=li></i>' : '<i data-icon=chevron-right class=li></i>'}</span></div>${m === ui.sel ? detail(m) : ''}`).join('') : detail(null)}
           <button class="payb">${L.pay} ${inr(TOTAL)}</button>
-          <div class="foot">Secured by Bizpole Pay · payments processed by PayU</div></div></div>`;
+          <div class="foot">Secured by Bizpole Pay · payments processed by our RBI-authorised payment partner</div></div></div>`;
   }
 
   function drawPreview(){

@@ -1,7 +1,7 @@
 // Page: links. Uses globals from app.html core (state, links, api, LOAD, helpers, PAGES, BIND).
 /* ---- Payment links ---- */
 // Data: /api/links (server/routes/links.js). Payments on a link are successful transactions on orders tied to it.
-// PayU's payment-link API isn't connected yet, so new links have no URL until PayU issues one.
+// Link creation with the payment partner isn't connected yet, so new links have no URL until one is issued.
 (() => {
   const PAGE = 10, DAY = 864e5;
   const RANGES = [['7d', 'Last 7 days', 7], ['30d', 'Last 30 days', 30], ['90d', 'Last 90 days', 90], ['all', 'All time', null]];
@@ -21,7 +21,7 @@
   const isOpen = l => ['ACTIVE', 'PARTIALLY_PAID'].includes(l.status);
   const pill = st => st === 'PARTIALLY_PAID' ? '<span class="pill warn">Partially paid</span>' : st === 'DEACTIVATED' ? '<span class="pill">Deactivated</span>' : statusPill(st);
   const copy = (txt, msg) => { try { navigator.clipboard && navigator.clipboard.writeText(txt); } catch (e) { /* clipboard may be blocked */ } toast(msg); };
-  const NO_URL = 'PayU issues the link URL once the link is created on PayU. That connection isn’t set up yet, so this link is saved here without a URL.';
+  const NO_URL = 'The payment link URL is issued once link creation is connected. That isn’t set up yet, so this link is saved here without a URL.';
   const NO_SEND = 'Sending by SMS, email or WhatsApp needs a messaging provider, which isn’t set up yet.';
   const shortId = id => String(id).slice(-8).toUpperCase();
 
@@ -174,10 +174,10 @@
         <dt>Amount</dt><dd>${l.customerAmount ? 'Entered by customer' : 'Fixed · ' + inr(l.amount)}</dd>
         <dt>Partial payments</dt><dd>${l.partial ? `Allowed · min ${inr(l.minAmount)}` : 'No'}</dd>
         <dt>Max payments</dt><dd>${l.maxPayments || '—'}</dd>
-        <dt>Link URL</dt><dd>${l.url ? 'Issued by PayU' : 'Not issued yet'}</dd></dl>
+        <dt>Link URL</dt><dd>${l.url ? 'Issued' : 'Not issued yet'}</dd></dl>
       <h3 style="margin-top:18px">Customer</h3><dl class="kv"><dt>Name</dt><dd>${esc(l.customer)}</dd><dt>Phone</dt><dd>${l.phone ? '+91 ' + esc(l.phone) : '—'}</dd><dt>Email</dt><dd>${esc(l.email || '—')}</dd></dl>
       <h3 style="margin-top:18px">Payments received <span class="muted" style="font-weight:500">(${l.payments.length})</span></h3>
-      ${l.payments.length ? `<div class="tbl-wrap"><table><thead><tr><th>Date</th><th>PayU ID</th><th>Mode</th><th class="right">Amount</th></tr></thead><tbody>
+      ${l.payments.length ? `<div class="tbl-wrap"><table><thead><tr><th>Date</th><th>Payment ID</th><th>Mode</th><th class="right">Amount</th></tr></thead><tbody>
         ${l.payments.slice().sort((a, b) => b.date - a.date).map(x => `<tr><td>${fmtDate(x.date)}</td><td class="mono">${esc(x.mihpayid)}</td><td>${esc(x.mode)}</td><td class="right"><b>${inr(x.amount)}</b></td></tr>`).join('')}</tbody></table></div>`
         : `<p class="muted" style="font-size:13px">No payments yet.</p>`}
       ${open ? `<div class="row" style="margin-top:20px"><button class="btn" onclick="links_extend('${l.id}')"><i data-icon=calendar class=li></i> Extend expiry</button><button class="btn danger" onclick="links_deactivate('${l.id}')">Deactivate link</button></div>`
@@ -225,7 +225,7 @@
     const noCred = !state.mids[state.mode];
     openModal(`<div class="lk-form"><div class="between"><h2 style="margin:0;font-size:20px">Create payment link</h2><button class="x" onclick="closeAll()"><i data-icon=x class=li></i></button></div>
       <p class="muted" style="margin:4px 0 0">${state.mode === 'test' ? 'Test link · no real money moves.' : 'Live link · customers are charged.'}</p>
-      <div id="lcnote">${noCred ? `<div class="notice bad">${state.mode === 'live' ? 'Live mode is not active yet. Finish onboarding to get live PayU credentials.' : 'No PayU test credentials on this account yet. Add your PayU test key and salt in Developer → API keys.'}</div>` : ''}</div>
+      <div id="lcnote">${noCred ? `<div class="notice bad">${state.mode === 'live' ? 'Live mode is not active yet. Finish onboarding to go live.' : 'No test payment account is set up for your business yet. Contact Bizpole support.'}</div>` : ''}</div>
       <div class="g">
         <div class="full"><label for="lcd">Description *</label><input id="lcd" maxlength="120" placeholder="What is this payment for?"><div class="lk-err" data-err="desc"></div></div>
         <div><label for="lci">Invoice number</label><input id="lci" maxlength="30" class="mono" placeholder="Generated if left blank"><div class="lk-err" data-err="inv"></div></div>

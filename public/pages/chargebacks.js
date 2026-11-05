@@ -4,8 +4,8 @@
   const PAGE = 10;
   const H = 3600e3, DAY = 864e5;
   const RANGES = [['7d', 'Last 7 days', 7], ['30d', 'Last 30 days', 30], ['90d', 'Last 90 days', 90]];
-  const FIELDS = [['caseId', 'Case ID'], ['txnid', 'Transaction ID'], ['mihpayid', 'PayU ID']];
-  // PayU dispute lifecycle (enum ChargebackStatus). "act" = merchant must respond.
+  const FIELDS = [['caseId', 'Case ID'], ['txnid', 'Transaction ID'], ['mihpayid', 'Payment ID']];
+  // Dispute lifecycle from the payment partner (enum ChargebackStatus). "act" = merchant must respond.
   const ST = {
     NEW: ['New', 'warn', true],
     PENDING_RESPONSE: ['Pending response', 'warn', true],
@@ -35,7 +35,7 @@
   const pill = s => `<span class="pill ${stOf(s)[1]}">${stOf(s)[0]}</span>`;
   const rangeDays = () => RANGES.find(r => r[0] === st.range)[2];
   const inRange = c => c.raised.getTime() >= now.getTime() - rangeDays() * DAY;
-  // No reply-by date from PayU → no deadline shown (never guessed).
+  // No reply-by date from the payment partner → no deadline shown (never guessed).
   const dueIn = c => c.respondBy ? c.respondBy.getTime() - Date.now() : Infinity;
   const dueLabel = c => { if (!c.respondBy) return 'date not given'; const ms = dueIn(c); if (ms <= 0) return 'Overdue'; const h = Math.floor(ms / H); return h < 48 ? `in ${h} h` : `in ${Math.floor(h / 24)} days`; };
   const dayLabel = d => d ? d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
@@ -114,7 +114,7 @@
 
   function table(list){
     const pages = Math.max(1, Math.ceil(list.length / PAGE)); st.page = Math.min(st.page, pages);
-    return `<div class="tbl-wrap"><table><thead><tr>${sortHead('raised', 'Raised')}<th>Case ID</th><th>PayU ID (Transaction ID)</th><th>Reason</th><th>Customer</th>${sortHead('amount', 'Disputed', 'right')}${sortHead('due', 'Respond by')}<th>Status</th></tr></thead>
+    return `<div class="tbl-wrap"><table><thead><tr>${sortHead('raised', 'Raised')}<th>Case ID</th><th>Payment ID (Transaction ID)</th><th>Reason</th><th>Customer</th>${sortHead('amount', 'Disputed', 'right')}${sortHead('due', 'Respond by')}<th>Status</th></tr></thead>
       <tbody>${list.length ? list.slice((st.page - 1) * PAGE, st.page * PAGE).map(c => {
         const urgent = needsAction(c) && dueIn(c) < 48 * H;
         return `<tr class="click" data-cid="${esc(c.id)}"><td>${fmtDate(c.raised)}</td><td class="mono">${esc(c.caseId)}</td><td><span class="mono">${esc(c.mihpayid)}</span><div class="mono muted" style="font-size:11.5px">${esc(c.txnid)}</div></td>
@@ -125,7 +125,7 @@
 
   const guide = () => `<div class="cb-guide">
     ${[['1', 'Respond before the deadline', 'Cases without a response by the reply-by date close in the customer\'s favour.'], ['2', 'Send strong evidence', 'Invoice plus proof of delivery or service usage wins most disputes.'],
-      ['3', 'PayU reviews first', 'Documents are checked before going to the bank; you may be asked for more.'], ['4', 'Bank decides', 'Issuing banks take up to 45 days. Held funds are released if you win.']]
+      ['3', 'Payment partner reviews first', 'Documents are checked before going to the bank; you may be asked for more.'], ['4', 'Bank decides', 'Issuing banks take up to 45 days. Held funds are released if you win.']]
       .map(([n, t, p]) => `<div class="card tile"><div class="ic">${n}</div><div><b>${t}</b><p>${p}</p></div></div>`).join('')}</div>`;
 
   PAGES.chargebacks = () => {
@@ -155,7 +155,7 @@
     $('#cbdl').onclick = () => {
       const list = rows();
       if (!list.length) return toast('No chargebacks to download for these filters');
-      const csv = 'case_id,raised,txnid,payu_id,reason_code,reason,amount,respond_by,status\n' +
+      const csv = 'case_id,raised,txnid,payment_id,reason_code,reason,amount,respond_by,status\n' +
         list.map(c => [c.caseId, c.raised.toISOString(), c.txnid, c.mihpayid, c.code, c.reason, (c.amount / 100).toFixed(2), c.respondBy ? c.respondBy.toISOString() : '', c.status].map(csvCell).join(',')).join('\n') + '\n';
       const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = `bizpolepay-chargebacks-${st.range}.csv`; a.click();
       toast(`Downloaded ${list.length} cases`);
@@ -176,9 +176,9 @@
     const act = needsAction(c);
     openDrawer(`<div class="between"><h2 style="margin:0">${inr(c.amount)}</h2><button class="x" onclick="closeAll()"><i data-icon=x class=li></i></button></div>
       <p>${pill(c.status)} <span class="muted">${esc(c.caseId)} · raised ${fmtDate(c.raised)}</span></p>
-      ${act ? `<div class="card" style="background:${dueIn(c) < 48 * H ? 'var(--bad-soft)' : 'var(--warn-soft)'};border-color:transparent;margin-bottom:14px;font-size:13.5px"><b>${c.respondBy ? `Respond by ${dayLabel(c.respondBy)} (${dueLabel(c)}).` : 'Response needed.'}</b> ${c.status === 'INSUFFICIENT_DOCUMENT' ? 'PayU needs more documents before this can go to the bank.' : 'Accept the chargeback or contest it with evidence.'}</div>` : ''}
+      ${act ? `<div class="card" style="background:${dueIn(c) < 48 * H ? 'var(--bad-soft)' : 'var(--warn-soft)'};border-color:transparent;margin-bottom:14px;font-size:13.5px"><b>${c.respondBy ? `Respond by ${dayLabel(c.respondBy)} (${dueLabel(c)}).` : 'Response needed.'}</b> ${c.status === 'INSUFFICIENT_DOCUMENT' ? 'The payment partner needs more documents before this can go to the bank.' : 'Accept the chargeback or contest it with evidence.'}</div>` : ''}
       <h3>Dispute</h3><dl class="kv"><dt>Case ID</dt><dd class="mono">${esc(c.caseId)}</dd>${c.bankCaseNo ? `<dt>Bank case no.</dt><dd class="mono">${esc(c.bankCaseNo)}</dd>` : ''}<dt>Reason</dt><dd>${esc(c.reason)}</dd><dt>Reason code</dt><dd class="mono">${c.code ? codeLine(c) : '—'}</dd><dt>Disputed amount</dt><dd>${inr(c.amount)}</dd><dt>Respond by</dt><dd>${act && c.respondBy ? dayLabel(c.respondBy) : '—'}</dd>${c.debitStatus ? `<dt>Debit status</dt><dd>${esc(c.debitStatus)}</dd>` : ''}</dl>
-      <h3 style="margin-top:18px">Original payment</h3><dl class="kv"><dt>Txn ID</dt><dd class="mono">${esc(c.txnid)}</dd><dt>PayU ID</dt><dd class="mono">${esc(c.mihpayid)}</dd><dt>Customer</dt><dd>${esc(c.name)}</dd><dt>Mode</dt><dd>${esc(c.mode)}</dd><dt>Paid on</dt><dd>${c.txnDate ? fmtDate(c.txnDate) : '—'}</dd></dl>
+      <h3 style="margin-top:18px">Original payment</h3><dl class="kv"><dt>Txn ID</dt><dd class="mono">${esc(c.txnid)}</dd><dt>Payment ID</dt><dd class="mono">${esc(c.mihpayid)}</dd><dt>Customer</dt><dd>${esc(c.name)}</dd><dt>Mode</dt><dd>${esc(c.mode)}</dd><dt>Paid on</dt><dd>${c.txnDate ? fmtDate(c.txnDate) : '—'}</dd></dl>
       <h3 style="margin-top:18px">Timeline</h3><div class="cb-tl">${c.timeline.map((e, i) => `<div class="${i === c.timeline.length - 1 ? 'last' : ''}"><b>${esc(e[1])}</b><small>${fmtDate(e[0])}${e[2] ? ' · ' + esc(e[2]) : ''}</small></div>`).join('')}</div>
       <h3 style="margin-top:10px">Evidence (${c.evidence.length})</h3>
       ${c.evidence.length ? c.evidence.map(f => `<div class="cb-ev"><span class="ic"><i data-icon=file class=li></i></span><div style="flex:1;min-width:0"><b style="word-break:break-all">${esc(f.name)}</b></div></div>`).join('') : '<p class="muted" style="font-size:13px;margin:4px 0">No documents submitted yet.</p>'}
@@ -192,7 +192,7 @@
   function accept(c){
     openModal(`<div class="between"><h2 style="margin:0;font-size:20px">Accept ${esc(c.caseId)}?</h2><button class="x" onclick="closeAll()"><i data-icon=x class=li></i></button></div>
       <p class="muted">You won't contest this dispute. <b style="color:var(--ink)">${inr(c.amount)}</b> goes back to ${esc(c.name)} and is deducted from your settlements. This can't be undone.</p>
-      <div class="notice cb-warn" style="font-size:13px">This marks the case as accepted in your dashboard. Sending the acceptance to PayU isn't connected yet, so also accept case ${esc(c.caseId)} with PayU before the deadline.</div>
+      <div class="notice cb-warn" style="font-size:13px">This marks the case as accepted in your dashboard. Sending the acceptance to the payment partner isn't connected yet, so also ask Bizpole support to accept case ${esc(c.caseId)} before the deadline.</div>
       <div class="row" style="margin-top:14px"><button class="btn" id="cbback">Go back</button><button class="btn primary" id="cbyes" style="background:var(--bad);border-color:var(--bad)">Accept chargeback</button></div>`);
     $('#cbback').onclick = () => drawer(c.id);
     $('#cbyes').onclick = async () => {
@@ -200,18 +200,18 @@
       try {
         const out = shape(await api(`/chargebacks/${encodeURIComponent(c.id)}/accept`, { method: 'POST' }));
         const list = all(), i = list.findIndex(x => x.id === c.id); if (i >= 0) list[i] = out;
-        closeAll(); toast(`${c.caseId} accepted here · confirm it with PayU too`); refresh(c.id);
+        closeAll(); toast(`${c.caseId} accepted here · confirm it with Bizpole support too`); refresh(c.id);
       } catch (e) { b.disabled = false; apiFail(e); }
     };
   }
 
-  // Evidence upload needs document storage and PayU's dispute API; neither is connected,
+  // Evidence upload needs document storage and the payment partner's dispute API; neither is connected,
   // so this explains what to send and where instead of pretending to upload.
   function contest(c){
     const auth = AUTH_CODES.includes(c.code);
     openModal(`<div class="between"><h2 style="margin:0;font-size:20px">Contest ${esc(c.caseId)}</h2><button class="x" onclick="closeAll()"><i data-icon=x class=li></i></button></div>
       <p class="muted" style="margin:6px 0 0;font-size:13px">${esc(c.reason)}${c.code ? ` · ${codeLine(c)}` : ''} · ${inr(c.amount)}</p>
-      <div class="notice cb-warn" style="font-size:13px;margin-top:12px">Uploading evidence from this dashboard isn't available yet. Send your documents to PayU for case <b class="mono">${esc(c.caseId)}</b>${c.respondBy ? ` before ${dayLabel(c.respondBy)}` : ' as soon as possible'}.</div>
+      <div class="notice cb-warn" style="font-size:13px;margin-top:12px">Uploading evidence from this dashboard isn't available yet. Send your documents to Bizpole support for case <b class="mono">${esc(c.caseId)}</b>${c.respondBy ? ` before ${dayLabel(c.respondBy)}` : ' as soon as possible'}.</div>
       <h3 style="margin:14px 0 0;font-size:15px">What to send</h3>
       <ul class="cb-list"><li>Invoice or order receipt for transaction <span class="mono">${esc(c.txnid)}</span></li>
         <li>${auth ? 'Proof of authorisation (OTP / 3-D Secure log)' : 'Proof of delivery or service usage'}</li>

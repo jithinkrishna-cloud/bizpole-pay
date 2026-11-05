@@ -22,7 +22,7 @@
     S.sso = r.sso;
     S.audit = a.map(x => ({ ...x, at: toDate(x.at) }));
   };
-  // PayU adapter, API keys and webhooks for the current mode (from the developer endpoints).
+  // Payment gateway status, API keys and webhooks for the current mode (from the developer endpoints).
   LOAD.payu = async (mode) => {
     const r = await api('/developer', { mode });
     S.gw.credentials = (r.credentials || []).map(c => ({ ...c, issuedAt: toDate(c.issuedAt) }));
@@ -50,7 +50,7 @@
     'member.added': 'Team member added', 'member.role_changed': 'Team role changed', 'member.removed': 'Team member removed',
     'session.revoked': 'Session signed out', 'session.revoked_others': 'Other sessions signed out', 'sso.saved': 'SSO settings saved',
     'onboarding.step_draft': 'Onboarding draft saved', 'onboarding.step_submitted': 'Onboarding step submitted', 'onboarding.submitted': 'Application submitted',
-    'credential.added': 'PayU credentials added', 'api_key.created': 'API key created', 'api_key.revoked': 'API key revoked',
+    'credential.added': 'Payment gateway credentials added', 'api_key.created': 'API key created', 'api_key.revoked': 'API key revoked',
     'webhook.created': 'Webhook added', 'webhook.updated': 'Webhook updated', 'webhook.deleted': 'Webhook deleted', 'webhook.test_sent': 'Webhook test sent', 'webhook.redelivered': 'Webhook redelivered',
     'refund.requested': 'Refund requested',
   };
@@ -70,6 +70,13 @@
     `<div class="tabs">${TABS.map(([k, l]) => `<button data-st="${k}" class="${k === S.tab ? 'on' : ''}">${l}</button>`).join('')}</div><div id="sv"></div>`;
 
   const VIEW = {
+    payu: () => {
+      const row = (m) => { const on = (S.gw.credentials || []).some(c => c.isDefault && c.status === 'ACTIVE');
+        return m === state.mode ? (on ? '<span class="pill ok">Active</span>' : '<span class="pill">Not set</span>') : ''; };
+      return `<div class="card" style="max-width:640px"><div class="between"><h3>Payment gateway (${state.mode})</h3>${row(state.mode)}</div>
+        <p class="muted" style="font-size:13.5px;margin:0">Managed by Bizpole. Contact Bizpole support to change it.</p>
+        <p class="muted" style="font-size:13px;margin:10px 0 0">Bizpole Pay connects to the payment gateway for you. No gateway keys are needed in your app or website. Switch between test and live mode at the top of the page to see each status.</p></div>`;
+    },
     biz: () => { const b = S.biz; if (!b) return '<div class="card empty"><p class="muted">Couldn\'t load your business profile. Reload the page to try again.</p></div>';
       const verified = b.status === 'LIVE';
       return `<div class="grid g-21"><div class="card"><div class="between"><h3>Business details</h3>${statusPill(b.status)}</div>
@@ -176,72 +183,6 @@
     };
   }
 
-  const pretty = o => esc(JSON.stringify(o, null, 2));
-  function gwSecretModal(title, note, secret, done){
-    openModal(`<h2 style="margin:0 0 6px;font-size:20px">${title}</h2><p class="muted">${note}</p>
-      <div class="secret"><code style="word-break:break-all">${esc(secret)}</code></div>
-      <div class="row" style="margin-top:14px"><button class="btn primary" onclick="closeAll()">${done}</button></div>`);
-  }
-  function gwCredDialog(){
-    openModal(`<div class="between"><h2 style="margin:0;font-size:20px">PayU test credentials</h2>${x}</div>
-      <p class="muted" style="font-size:13px">Copy these from your PayU test dashboard. They become the default for test mode. The salt is encrypted and can't be viewed again.</p>
-      <label>Merchant ID (MID)</label><input id="gw-mid" inputmode="numeric" autocomplete="off" class="mono">
-      <label>Merchant key</label><input id="gw-key" autocomplete="off" class="mono">
-      <label>Salt</label><input id="gw-salt" type="password" autocomplete="off" class="mono"><span class="muted" style="font-size:12px">Salts longer than 32 characters are saved as version 2.</span>
-      <label>Label <span class="muted" style="font-weight:500">(optional)</span></label><input id="gw-label" placeholder="Test MID" maxlength="60">
-      <span id="gw-err" style="color:var(--bad);font-size:12.5px;display:block;margin-top:8px"></span>
-      <div class="row" style="margin-top:10px"><button class="btn" onclick="closeAll()">Cancel</button><button class="btn primary" id="gw-go">Save credentials</button></div>`);
-    $('#gw-go').onclick = async () => {
-      const b = $('#gw-go'), body = { payuMid: $('#gw-mid').value.trim(), merchantKey: $('#gw-key').value.trim(), salt: $('#gw-salt').value.trim(), label: $('#gw-label').value.trim() };
-      if (!/^\d{4,12}$/.test(body.payuMid)) return void ($('#gw-err').textContent = 'Enter the numeric MID.');
-      if (!body.merchantKey) return void ($('#gw-err').textContent = 'Enter the merchant key.');
-      if (body.salt.length < 16) return void ($('#gw-err').textContent = 'Enter the full salt.');
-      busy(b, true);
-      try {
-        await api('/developer/credentials', { method: 'POST', body, mode: 'test' });
-        await LOAD.payu(state.mode); closeAll(); toast('PayU test credentials saved'); show('payu');
-      } catch (e) { $('#gw-err').textContent = e.message; busy(b, false); }
-    };
-  }
-  function gwHookDialog(id){
-    const w = id == null ? { url: '', events: ['payment.success'], active: true } : S.gw.webhooks.find(h => h.id === id);
-    const ev = (w && w.events && w.events[0]) || '';
-    const parts = ev.split('.');
-    const type = parts[0] || 'payment', event = parts[1] || 'success';
-    const types = [...new Set(HOOK_EVENTS.map(e => String(e).split('.')[0]))];
-    const acts = HOOK_EVENTS.filter(e => String(e).split('.')[0] === type).map(e => String(e).split('.')[1]);
-    openModal(`<div class="between"><h2 style="margin:0;font-size:20px">${id == null ? 'Add' : 'Edit'} webhook endpoint</h2>${x}</div>
-      <label>Endpoint URL</label><input id="gw-wh-url" type="url" placeholder="https://yourserver.in/webhooks/paynest">
-      <div class="st-f"><label for="gw-wh-type">Type</label><select id="gw-wh-type">${types.map(t => `<option value="${t}" ${t === type ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
-      <div class="st-f"><label for="gw-wh-event">Event</label><select id="gw-wh-event">${acts.map(a => `<option value="${a}" ${a === event ? 'selected' : ''}>${a}</option>`).join('')}</select></div>
-      <label class="ck" style="margin-top:10px!important"><input type="checkbox" id="gw-wh-act" ${w && w.active ? 'checked' : ''}>Endpoint enabled</label>
-      <span id="gw-wh-err" style="color:var(--bad);font-size:12px;display:block;margin-top:8px"></span>
-      <div class="row" style="margin-top:14px"><button class="btn" onclick="closeAll()">Cancel</button><button class="btn primary" id="gw-wh-go">${id == null ? 'Add endpoint' : 'Save'}</button></div>`, { wide: true });
-    $('#gw-wh-go').onclick = async () => {
-      const url = $('#gw-wh-url').value.trim(), type = $('#gw-wh-type').value, event = $('#gw-wh-event').value;
-      const ev = [type, event].filter(Boolean).join('.');
-      const bad = !/^https:\/\/[^\s/]+\.[^\s]+/.test(url) ? 'Use a public https:// URL' : !ev ? 'Pick an event' : '';
-      $('#gw-wh-err').textContent = bad; if (bad) return;
-      const body = { type, event, url, active: $('#gw-wh-act').checked };
-      busy($('#gw-wh-go'), true);
-      try {
-        if (id == null) { const r = await api('/developer/webhooks', { method: 'POST', body, mode: state.mode }); closeAll(); gwSecretModal('Endpoint added', "Copy the signing secret now. It won't be shown again.", r.secret, 'Done'); await LOAD.payu(state.mode); show('payu'); }
-        else { await api('/developer/webhooks/' + encodeURIComponent(id), { method: 'PATCH', body, mode: state.mode }); closeAll(); toast('Webhook updated'); await LOAD.payu(state.mode); show('payu'); }
-        await LOAD.payu(state.mode);
-      } catch (e) { $('#gw-wh-err').textContent = e.message; busy($('#gw-wh-go'), false); }
-    };
-  }
-  function gwTest(){
-    busy($('#gw-test'), true); $('#gw-test').textContent = 'Testing...';
-    api('/developer/credentials/test', { method: 'POST', mode: state.mode }).then(r => {
-      openDrawer(`<div class="between"><h2 style="margin:0">PayU connection test</h2>${x}</div>
-        <p style="margin-top:0">${statusPill(r.ok ? 'SUCCESS' : 'FAILED')} <span class="muted">${esc(r.msg || '')}</span></p>
-        <pre class="code">${pretty(r)}</pre>`);
-    }).catch(e => {
-      openDrawer(`<div class="between"><h2 style="margin:0">PayU connection test</h2>${x}</div>
-        <p style="margin-top:0">${esc(e.message || 'Test failed')}</p>`);
-    }).finally(() => busy($('#gw-test'), false));
-  }
   const BINDV = {
     biz: () => {
       if (!$('#b-save')) return;

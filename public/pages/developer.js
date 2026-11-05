@@ -61,26 +61,20 @@ if (!timingSafeEqual(Buffer.from(v1), Buffer.from(expected))) return res.sendSta
     const m = state.mode, dl = deliveries[m], ok = dl.filter(d => d.status === 'DELIVERED').length, def = creds[m].find(c => c.isDefault && c.status === 'ACTIVE');
     return head('Developer', `${isLive() ? 'Live' : 'Test'} mode credentials, API keys and webhooks.`, `<a class="btn" href="#/transactions">View ${isLive() ? 'live' : 'test'} payments</a>`) +
       `<div class="grid g4" style="margin-bottom:16px">
-        <div class="card kpi"><small>PayU credentials</small><b>${def ? 'Active' : 'Not set'}</b><span class="d muted">${def ? 'MID ' + esc(def.mid) + ' · salt ' + def.saltVersion : isLive() ? 'Issued when you go live' : 'Set up by Bizpole support'}</span></div>
+        <div class="card kpi"><small>Payment gateway</small><b>${def ? 'Active' : 'Not set'}</b><span class="d muted">Managed by Bizpole</span></div>
         <div class="card kpi"><small>Active API keys</small><b>${apiKeys[m].length}</b><span class="d muted">${m} mode</span></div>
         <div class="card kpi"><small>Webhook endpoints</small><b>${webhooks[m].length}</b><span class="d muted">${webhooks[m].filter(w => w.active).length} enabled</span></div>
         <div class="card kpi"><small>Webhook success</small><b>${dl.length ? Math.round(ok / dl.length * 100) + '%' : '—'}</b><span class="d muted">${dl.length} deliver${dl.length === 1 ? 'y' : 'ies'} recorded</span></div></div>
       <div class="tabs">${TABS.map(([k, l]) => `<button data-dv="${k}" class="${k === V.tab ? 'on' : ''}">${l}</button>`).join('')}</div><div id="dv"></div>`;
   };
 
+  // The payment gateway is set up and managed by Bizpole (Super Admin). Merchants see its status only.
   function credCard(){
-    const list = creds[state.mode], def = list.find(c => c.isDefault && c.status === 'ACTIVE'), others = list.filter(c => c !== def);
-    const body = def ? `<label>Merchant ID</label><div class="secret"><code>${esc(def.mid)}</code>${copyBtn(def.mid)}</div>
-        <label>Merchant key</label><div class="secret"><code>${esc(def.key)}</code></div>
-        <label>Salt</label><div class="secret"><code>••••••••••••••••••••••••••••</code></div>
-        <p class="muted" style="font-size:12.5px;margin:8px 0 0">The salt is stored encrypted and is never shown, not even to you.</p>`
-      : `<div class="empty-state" style="padding:18px 8px;text-align:center"><b>No ${state.mode} credentials yet</b><p class="muted" style="font-size:13px;margin:6px 0 0">${isLive() ? 'Live PayU credentials are issued when your account goes live.' : 'Bizpole support links a PayU test account to your organization so test payments, refunds and links can reach PayU.'}</p></div>`;
-    return `<div class="card"><div class="between"><h3>Payment gateway credentials (${state.mode})</h3>${def ? `<span class="pill brand">Salt ${def.saltVersion}</span>` : ''}</div>
-      <p class="muted" style="font-size:13px;margin-top:0">Used only by Bizpole Pay's servers to sign requests to PayU. Never put the salt in an app or website.</p>
-      ${body}
-      ${others.length ? `<h4 style="margin:16px 0 4px;font-size:13px">Other credentials</h4><div class="tbl-wrap"><table><thead><tr><th>MID</th><th>Key</th><th>Salt</th><th>Status</th><th>Added</th></tr></thead><tbody>
-        ${others.map(c => `<tr><td class="mono">${esc(c.mid)}</td><td class="mono">${esc(c.key)}</td><td>${c.saltVersion}</td><td>${statusPill(c.status === 'ACTIVE' ? 'INACTIVE' : c.status)}</td><td>${day(c.issuedAt)}</td></tr>`).join('')}</tbody></table></div>` : ''}
-      <div style="margin-top:14px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);font-size:13px;color:var(--ink-2)">PayU credentials are managed by Bizpole. To add, replace or rotate them, contact Bizpole support.</div></div>`;
+    const def = creds[state.mode].find(c => c.isDefault && c.status === 'ACTIVE');
+    return `<div class="card"><div class="between"><h3>Payment gateway (${state.mode})</h3>${def ? '<span class="pill ok">Active</span>' : '<span class="pill">Not set</span>'}</div>
+      <p class="muted" style="font-size:13px;margin-top:0">Bizpole Pay connects to the payment gateway for you. No gateway keys are needed in your app or website.</p>
+      ${def ? '' : `<p class="muted" style="font-size:13px;margin:0">${isLive() ? 'Live payments are switched on when your account goes live.' : 'Bizpole support sets up test payments for your business.'}</p>`}
+      <div style="margin-top:14px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);font-size:13px;color:var(--ink-2)">Managed by Bizpole. Contact Bizpole support to change it.</div></div>`;
   }
 
   const VIEW = {
@@ -104,12 +98,12 @@ if (!timingSafeEqual(Buffer.from(v1), Buffer.from(expected))) return res.sendSta
     guide: () => `<div class="grid g-21"><div class="card"><h3>1 · Create an order on your server</h3>
         <div class="tabs" style="margin-bottom:10px">${Object.keys(CODE).map(k => `<button data-lang="${k}" class="${k === V.lang ? 'on' : ''}">${{ node: 'Node.js', python: 'Python', php: 'PHP', curl: 'cURL' }[k]}</button>`).join('')}</div>
         <pre class="code" id="dv-code">${esc(CODE[V.lang])}</pre>
-        <h3 style="margin-top:18px">2 · Redirect and listen</h3><p class="muted" style="margin:0">Send the customer to <span class="mono">checkout_url</span>. When the payment is confirmed with PayU we send <span class="mono">payment.success</span> to your webhook.</p>
+        <h3 style="margin-top:18px">2 · Redirect and listen</h3><p class="muted" style="margin:0">Send the customer to <span class="mono">checkout_url</span>. When the payment is confirmed we send <span class="mono">payment.success</span> to your webhook.</p>
         <h3 style="margin-top:18px">3 · Refund when needed</h3><pre class="code">POST /v1/refunds  { "payment_id": "pay_9201", "amount": 10000, "reason": "Customer request" }</pre></div>
       <div class="card"><h3>Test details</h3><p class="muted" style="font-size:13px;margin-top:0">Test mode never moves real money. Use these on the test checkout:</p>
         <dl class="kv"><dt>Card (success)</dt><dd class="mono">5123 4567 8901 2346</dd><dt>Expiry / CVV</dt><dd class="mono">05/30 · 123</dd><dt>OTP</dt><dd class="mono">123456</dd>
         <dt>UPI (success)</dt><dd class="mono">success@upi</dd><dt>UPI (failure)</dt><dd class="mono">failure@upi</dd></dl>
-        <p class="muted" style="font-size:12.5px">Illustrative values. Use the current test credentials from PayU's sandbox docs.</p>
+        <p class="muted" style="font-size:12.5px">Illustrative values. Use the test card and UPI details shown on the test payment page.</p>
         <a class="btn" href="#/checkout" style="margin-top:auto">Preview your checkout</a></div></div>`,
   };
 

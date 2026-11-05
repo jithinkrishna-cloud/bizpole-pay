@@ -104,7 +104,7 @@
       ["payments-failed", "Failed payments", "x", 3], ["refunds", "Refunds", "refund", 3], ["refund-requests", "Refund requests", "inbox", 3],
       ["settlements", "Settlements", "bank", 3], ["recon", "Reconciliation", "scale", 4], ["recon-exceptions", "Reconciliation exceptions", "alert", 4]] },
     { id: "integrations", label: "Integrations", items: [
-      ["payu-settings", "PayU settings", "tool", 4], ["providers", "Payment providers", "plug", 4], ["provider-accounts", "Provider accounts", "id", 4], ["api-credentials", "API credentials", "key", 4],
+      ["provider-settings", "Provider settings", "tool", 4], ["providers", "Payment providers", "plug", 4], ["provider-accounts", "Provider accounts", "id", 4], ["api-credentials", "API credentials", "key", 4],
       ["webhooks", "Webhook events", "hook", 4], ["webhook-failures", "Webhook failures", "alert", 4], ["integration-health", "Integration health", "heart", 4],
       ["api-activity", "API activity", "terminal", 4]] },
     { id: "security", label: "Monitoring and security", items: [
@@ -329,6 +329,10 @@
     const id = (n) => "f-" + n.replace(/[^a-z0-9]/gi, "-");
     const input = (f) => f.type === "checkbox"
       ? `<label class="check"><input type="checkbox" id="${id(f.name)}" name="${esc(f.name)}"${f.value ? " checked" : ""} /><span>${esc(f.label)}${f.help ? `<br><small class="muted">${esc(f.help)}</small>` : ""}</span></label>`
+      : f.type === "select"
+      ? `<label class="field" data-field="${esc(f.name)}"><span>${esc(f.label)}</span>
+          <select id="${id(f.name)}" name="${esc(f.name)}">${(f.options || []).map(([v, l]) => `<option value="${esc(v)}"${v === f.value ? " selected" : ""}>${esc(l)}</option>`).join("")}</select>
+          ${f.help ? `<small>${esc(f.help)}</small>` : ""}</label>`
       : `<label class="field" data-field="${esc(f.name)}"><span>${esc(f.label)}${f.required === false ? ' <small>(optional)</small>' : ""}</span>
           <input id="${id(f.name)}" name="${esc(f.name)}" type="${f.type === "secret" || f.type === "password" ? "password" : f.type || "text"}"
             ${f.mono ? 'class="mono"' : ""} value="${esc(f.value ?? "")}" placeholder="${esc(f.placeholder || "")}"
@@ -362,7 +366,7 @@
       catch (e) {
         if (e.status === 401) return finish(null);
         err.textContent = e.message || "That didn't work. Try again.";
-        const name = e.field && e.field.replace(/^default\./, "");
+        const name = e.field && e.field.replace(/^[A-Za-z]+\./, "");
         const bad = name && (form.elements[name] || form.elements[e.field]);
         if (bad) { bad.closest(".field")?.classList.add("bad"); bad.focus(); }
         if (form.elements.password) form.elements.password.value = "";
@@ -374,7 +378,7 @@
     form.addEventListener("keydown", (e) => { if (e.key === "Enter" && e.target.tagName === "INPUT" && e.target.type !== "checkbox") { e.preventDefault(); submit(); } });
     d.addEventListener("cancel", () => { d.className = ""; resolve(null); }, { once: true });
     d.showModal();
-    (form.querySelector("input:not([type=checkbox])") || go).focus();
+    (form.querySelector("input:not([type=checkbox]), select") || go).focus();
   });
 
   // ── Header: mode, search, notifications, profile ──
@@ -446,6 +450,8 @@
         <div style="margin-top:6px"><span class="pill info">Super Admin</span></div></div>
       <button type="button" class="menu-item" id="signout">${icon("out")}<span>Sign out</span></button>`;
     $("#signout").addEventListener("click", async () => {
+      closePops();
+      if (!(await SA.confirm({ title: "Sign out?", body: "You'll need to sign in again to use the Super Admin console on this device.", confirmLabel: "Sign out" }))) return;
       try { await SA.api("/auth/logout", {}, { method: "POST", body: {}, withMode: false }); } catch {}
       SA.signedOut("You're signed out.", "info");
     });

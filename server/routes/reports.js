@@ -70,7 +70,7 @@ async function build(merchantId, mode, { type, fromDate, toDate, filters }) {
            FROM "Transaction" t JOIN "Order" o ON o.id = t."orderId" LEFT JOIN "Customer" cu ON cu.id = o."customerId"
           WHERE t."merchantId"=$1 AND t.mode=$2 AND NOT t."isMandateRegistration" AND t."createdAt" BETWEEN $3 AND $4${extra}
           ORDER BY t."createdAt" DESC`, p);
-      return { head: "date,payu_id,txnid,customer,email,phone,payment_mode,bank,amount,refunded,status,failure_reason",
+      return { head: "date,payment_id,txnid,customer,email,phone,payment_mode,bank,amount,refunded,status,failure_reason",
         rows: rows.map((t) => [iso(t.createdAt), t.mihpayid || "", t.txnid, t.name || "", t.email || "", t.phone || "", methodLabel(t.method), t.bankcode || "",
           rupees(t.amountPaise), rupees(t.refunded), txnStatus(t.status), t.errorMessage || ""]) };
     }
@@ -83,7 +83,7 @@ async function build(merchantId, mode, { type, fromDate, toDate, filters }) {
            FROM "Refund" r JOIN "Transaction" t ON t.id = r."transactionId" JOIN "Order" o ON o.id = t."orderId"
            LEFT JOIN "Customer" cu ON cu.id = o."customerId"
           WHERE r."merchantId"=$1 AND r.mode=$2 AND r."createdAt" BETWEEN $3 AND $4${extra} ORDER BY r."createdAt" DESC`, p);
-      return { head: "date,refund_id,txnid,customer,amount,captured,reason,payu_request_id,bank_arn,status",
+      return { head: "date,refund_id,txnid,customer,amount,captured,reason,request_id,bank_arn,status",
         rows: rows.map((x) => [iso(x.createdAt), x.id, x.txnid, x.name || "", rupees(x.amountPaise), rupees(x.captured), x.reason || "", x.payuRequestId || "", x.bankArn || "", x.status]) };
     }
     case "Settlements": {
@@ -94,7 +94,7 @@ async function build(merchantId, mode, { type, fromDate, toDate, filters }) {
     case "Chargebacks": {
       const list = (await chargebacks.list(merchantId, mode, { from: fromDate, to: toDate }))
         .filter((c) => !f.status || (f.status === "CLOSED") === chargebacks.CLOSED.includes(c.status));
-      return { head: "case_id,raised,txnid,payu_id,reason_code,reason,amount,respond_by,status",
+      return { head: "case_id,raised,txnid,payment_id,reason_code,reason,amount,respond_by,status",
         rows: list.map((c) => [c.caseId, iso(c.raised), c.txnid, c.mihpayid === "—" ? "" : c.mihpayid, c.code, c.reason, rupees(c.amount), iso(c.respondBy), c.status]) };
     }
     case "Payouts": {

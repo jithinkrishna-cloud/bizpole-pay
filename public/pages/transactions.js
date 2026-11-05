@@ -3,10 +3,10 @@
 const PAGE_SIZE = 10;
 const RANGES = [['1h', 'Last 1 hour', 3600e3], ['today', 'Today', null], ['yesterday', 'Yesterday', null], ['7d', 'Last 7 days', 7 * 864e5], ['30d', 'Last 30 days', 30 * 864e5]];
 const SEARCH_FIELDS = {
-  p: [['mihpayid', 'PayU ID'], ['txnid', 'Transaction ID'], ['email', 'Email'], ['phone', 'Phone'], ['name', 'Customer name']],
+  p: [['mihpayid', 'Payment ID'], ['txnid', 'Transaction ID'], ['email', 'Email'], ['phone', 'Phone'], ['name', 'Customer name']],
   r: [['id', 'Refund ID'], ['txnid', 'Transaction ID'], ['arn', 'Bank ARN'], ['name', 'Customer name']],
 };
-const COLUMNS = [['date', 'Date', true], ['payu', 'PayU ID (Transaction ID)', true], ['mode', 'Payment mode', true], ['customer', 'Customer', false], ['email', 'Email', true], ['phone', 'Phone', false], ['bank', 'Bank / issuer', false], ['amount', 'Amount', true], ['status', 'Status', true]];
+const COLUMNS = [['date', 'Date', true], ['payu', 'Payment ID (Transaction ID)', true], ['mode', 'Payment mode', true], ['customer', 'Customer', false], ['email', 'Email', true], ['phone', 'Phone', false], ['bank', 'Bank / issuer', false], ['amount', 'Amount', true], ['status', 'Status', true]];
 const tx = {
   tab: 'p', page: 1, range: '7d', field: { p: 'mihpayid', r: 'id' }, q: { p: '', r: '' },
   status: { p: [], r: [] }, modes: [], sort: { key: 'date', dir: -1 }, cols: Object.fromEntries(COLUMNS.map(c => [c[0], c[2]])),
@@ -14,7 +14,7 @@ const tx = {
 };
 const OPEN_REFUND = ['REQUESTED', 'QUEUED', 'IN_PROGRESS'];
 // What a refund status means for the merchant, shown after a submit and in the drawer.
-const refundNote = s => s === 'REQUESTED' ? 'Recorded, not yet accepted by PayU' : s === 'QUEUED' ? 'Accepted by PayU' : s === 'FAILED' ? 'Rejected by PayU' : titleCase(s);
+const refundNote = s => s === 'REQUESTED' ? 'Recorded, not yet accepted by the payment partner' : s === 'QUEUED' ? 'Accepted by the payment partner' : s === 'FAILED' ? 'Rejected by the payment partner' : titleCase(s);
 const titleCase = s => s.replace(/_/g, ' ').toLowerCase().replace(/^./, c => c.toUpperCase());
 function inRange(d){
   const r = RANGES.find(x => x[0] === tx.range), t = d.getTime(), sod = new Date(now); sod.setHours(0, 0, 0, 0);
@@ -118,22 +118,22 @@ function renderRefunds(){
   const rows = refRows(), pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
   tx.page = Math.min(tx.page, pages);
   return toolbar('r') + kpis('r', rows) +
-    `<div class="tbl-wrap"><table><thead><tr>${sortHead('date', 'Requested')}<th>Refund ID</th><th>PayU ID (Transaction ID)</th><th>Customer</th><th>Reason</th>${sortHead('amount', 'Amount', 'right')}<th>Bank ARN</th><th>Status</th></tr></thead>
+    `<div class="tbl-wrap"><table><thead><tr>${sortHead('date', 'Requested')}<th>Refund ID</th><th>Payment ID (Transaction ID)</th><th>Customer</th><th>Reason</th>${sortHead('amount', 'Amount', 'right')}<th>Bank ARN</th><th>Status</th></tr></thead>
     <tbody>${rows.length ? rows.slice((tx.page - 1) * PAGE_SIZE, tx.page * PAGE_SIZE).map(r => { const t = D().find(x => x.txnid === r.txnid) || {};
       return `<tr class="click" data-rid="${r.id}"><td>${fmtDate(r.date)}</td><td class="mono">${r.id}</td><td><span class="mono">${t.mihpayid || '—'}</span><div class="mono muted" style="font-size:11.5px">${r.txnid}</div></td><td>${esc(r.name || '—')}</td><td>${esc(r.reason || '—')}</td>
       <td class="right">${r.captured && r.amount < r.captured ? '<span class="pill" style="margin-right:6px">Partial</span>' : ''}<b>${inr(r.amount)}</b></td><td class="mono">${r.arn}</td><td>${statusPill(r.status)}</td></tr>`; }).join('') : emptyState(8)}</tbody></table></div>` + pager(rows.length);
 }
 function renderBatch(){
   return `<div class="grid g-21" style="margin-bottom:18px">
-    <div class="card"><h3>Upload a batch refund file</h3><p class="muted" style="margin:0 0 12px">Refund many payments at once. Each row is checked against your transactions before anything is sent to PayU.</p>
+    <div class="card"><h3>Upload a batch refund file</h3><p class="muted" style="margin:0 0 12px">Refund many payments at once. Each row is checked against your transactions before anything is sent to the payment partner.</p>
       <label class="drop" id="drop"><input type="file" id="bfile" accept=".csv" hidden><div style="font-size:28px"><i data-icon=upload class=li></i></div><b>Drop a CSV here or click to choose</b><span class="muted" style="font-size:13px">Max 5,000 rows · UTF-8 CSV</span></label>
       <div id="bpreview"></div></div>
     <div class="card"><h3>File format</h3><p class="muted" style="margin:0 0 10px;font-size:13px">One refund per row, with a header row:</p>
       <pre class="code">${esc(sampleCsv().trim())}</pre>
-      <ul class="muted" style="font-size:13px;padding-left:18px;margin:10px 0"><li><b>payu_id</b>: the PayU ID of a successful payment</li><li><b>amount</b>: in rupees, up to the refundable amount</li><li><b>reason</b>: optional, shown on the refund</li></ul>
+      <ul class="muted" style="font-size:13px;padding-left:18px;margin:10px 0"><li><b>payment_id</b>: the Payment ID of a successful payment</li><li><b>amount</b>: in rupees, up to the refundable amount</li><li><b>reason</b>: optional, shown on the refund</li></ul>
       <button class="btn" id="sample" style="margin-top:auto"><i data-icon=download class=li></i> Download sample file</button></div></div>
     <h3 style="margin:0 0 10px">Last batch</h3>
-    ${tx.batch ? `<div class="tbl-wrap"><table><thead><tr><th>Row</th><th>PayU ID</th><th class="right">Amount</th><th>Result</th></tr></thead>
+    ${tx.batch ? `<div class="tbl-wrap"><table><thead><tr><th>Row</th><th>Payment ID</th><th class="right">Amount</th><th>Result</th></tr></thead>
     <tbody>${tx.batch.results.map(r => `<tr><td>${r.line}</td><td class="mono">${esc(r.id)}</td><td class="right">${r.amt > 0 ? inr(r.amt) : '—'}</td><td><span style="color:var(--${r.ok ? 'ok' : 'bad'})">${esc(r.msg)}</span></td></tr>`).join('')}</tbody></table></div>
     <p class="muted" style="font-size:12.5px;margin:8px 0 0">${esc(tx.batch.file)} · each accepted row is now a refund in the Refunds tab.</p>`
     : `<div class="card"><p class="muted" style="margin:0">No batch submitted in this session. Each row of an uploaded file becomes a normal refund, so earlier batch refunds are listed in the <button class="linkish" data-t2="r">Refunds</button> tab.</p></div>`}`;
@@ -141,16 +141,17 @@ function renderBatch(){
 // Sample rows use this account's own refundable payments (half the balance); a placeholder row when there are none.
 function sampleCsv(){
   const ok = D().filter(t => t.status === 'SUCCESS' && t.mihpayid !== '—' && t.amount - t.refunded > 0).slice(0, 3);
-  return 'payu_id,amount,reason\n' + (ok.length ? ok.map(t => `${t.mihpayid},${((t.amount - t.refunded) / 200).toFixed(2)},Customer request`).join('\n') : '<payu_id of a successful payment>,100.00,Customer request') + '\n';
+  return 'payment_id,amount,reason\n' + (ok.length ? ok.map(t => `${t.mihpayid},${((t.amount - t.refunded) / 200).toFixed(2)},Customer request`).join('\n') : '<payment_id of a successful payment>,100.00,Customer request') + '\n';
 }
 function parseBatch(text){
   const lines = text.trim().split(/\r?\n/), header = lines.shift().split(',').map(h => h.trim().toLowerCase());
-  const iId = header.indexOf('payu_id'), iAmt = header.indexOf('amount'), iReason = header.indexOf('reason');
-  if (iId < 0 || iAmt < 0) return { error: 'Header must include payu_id and amount.' };
+  // Files made before the column was renamed use the older header; both are accepted.
+  const iId = header.indexOf('payment_id') >= 0 ? header.indexOf('payment_id') : header.indexOf('payu_id'), iAmt = header.indexOf('amount'), iReason = header.indexOf('reason');
+  if (iId < 0 || iAmt < 0) return { error: 'Header must include payment_id and amount.' };
   return { rows: lines.filter(Boolean).map((line, n) => {
     const c = line.split(','), id = (c[iId] || '').trim(), amt = Math.round(parseFloat(c[iAmt]) * 100), t = id && id !== '—' ? D().find(x => x.mihpayid === id) : null;
     let error = '';
-    if (!t) error = 'PayU ID not found';
+    if (!t) error = 'Payment ID not found';
     else if (t.status !== 'SUCCESS') error = 'Payment was not successful';
     else if (!(amt > 0)) error = 'Invalid amount';
     else if (amt > t.amount - t.refunded) error = `Exceeds refundable ${inr(t.amount - t.refunded)}`;
@@ -161,7 +162,7 @@ function showBatchPreview(name, parsed){
   if (parsed.error) { $('#bpreview').innerHTML = `<div class="notice bad">${parsed.error}</div>`; return; }
   const ok = parsed.rows.filter(r => !r.error), bad = parsed.rows.filter(r => r.error);
   $('#bpreview').innerHTML = `<div class="between" style="margin:14px 0 8px"><b>${esc(name)}</b><span><span class="pill ok">${ok.length} valid</span> ${bad.length ? `<span class="pill bad">${bad.length} with errors</span>` : ''}</span></div>
-    <div class="tbl-wrap" style="max-height:220px"><table><thead><tr><th>Row</th><th>PayU ID</th><th class="right">Amount</th><th>Check</th></tr></thead><tbody>
+    <div class="tbl-wrap" style="max-height:220px"><table><thead><tr><th>Row</th><th>Payment ID</th><th class="right">Amount</th><th>Check</th></tr></thead><tbody>
     ${parsed.rows.map(r => `<tr><td>${r.line}</td><td class="mono">${esc(r.id)}</td><td class="right">${r.amt > 0 ? inr(r.amt) : '—'}</td><td>${r.error ? `<span style="color:var(--bad)">${r.error}</span>` : '<span style="color:var(--ok)">✓ Ready</span>'}</td></tr>`).join('')}</tbody></table></div>
     <div class="row" style="margin-top:12px;gap:8px"><button class="btn" id="bcancel">Cancel</button><button class="btn primary" id="bsubmit" ${ok.length ? '' : 'disabled'}>Refund ${ok.length} payments · ${inr(ok.reduce((a, r) => a + r.amt, 0))}</button></div>`;
   $('#bcancel').onclick = () => { $('#bpreview').innerHTML = ''; $('#bfile').value = ''; };
@@ -223,7 +224,7 @@ function bindTxView(k){
     closeMenus();
     const rows = k === 'p' ? payRows() : refRows();
     const csv = k === 'p'
-      ? 'date,payu_id,txnid,mode,email,amount,status\n' + rows.map(t => [t.date.toISOString(), t.mihpayid, t.txnid, t.mode, t.email, (t.amount / 100).toFixed(2), t.status].join(',')).join('\n')
+      ? 'date,payment_id,txnid,mode,email,amount,status\n' + rows.map(t => [t.date.toISOString(), t.mihpayid, t.txnid, t.mode, t.email, (t.amount / 100).toFixed(2), t.status].join(',')).join('\n')
       : 'date,refund_id,txnid,amount,arn,status\n' + rows.map(r => [r.date.toISOString(), r.id, r.txnid, (r.amount / 100).toFixed(2), r.arn, r.status].join(',')).join('\n');
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv + '\n'], { type: 'text/csv' }));
     a.download = `bizpolepay-${k === 'p' ? 'payments' : 'refunds'}-${tx.range}.csv`; a.click();
@@ -255,13 +256,13 @@ function refundDrawer(id){
   if (!r) return toast('Refund not found. Refresh and try again.');
   const t = D().find(x => x.txnid === r.txnid) || {};
   const accepted = ['QUEUED', 'IN_PROGRESS', 'SUCCESS'].includes(r.status) || r.requestId !== '—';
-  const steps = [['Refund requested', true], ['Accepted by PayU (request ID issued)', accepted], ['Processed by bank', r.status === 'SUCCESS'], ['ARN available to customer', r.arn !== '—']];
+  const steps = [['Refund requested', true], ['Accepted by the payment partner (request ID issued)', accepted], ['Processed by bank', r.status === 'SUCCESS'], ['ARN available to customer', r.arn !== '—']];
   openDrawer(`<div class="between"><h2 style="margin:0">${inr(r.amount)}</h2><button class="x" onclick="closeAll()"><i data-icon=x class=li></i></button></div>
     <p>${statusPill(r.status)} <span class="muted">${fmtDate(r.date)}</span></p>
-    ${r.status === 'FAILED' ? `<div class="card" style="background:var(--bad-soft);border-color:transparent;margin-bottom:14px"><b>Refund failed.</b> PayU did not accept this refund. You can issue a new one from the payment.</div>` : ''}
-    ${r.status === 'REQUESTED' ? `<div class="card" style="background:var(--warn-soft);border-color:transparent;margin-bottom:14px;font-size:13.5px"><b>Not yet accepted by PayU.</b> The refund is recorded, but PayU has not confirmed it: there are no active PayU credentials for ${state.mode} mode on this account, or PayU could not be reached.</div>` : ''}
-    <h3>Refund</h3><dl class="kv"><dt>Refund ID</dt><dd class="mono">${esc(r.id)}</dd><dt>PayU request ID</dt><dd class="mono">${esc(r.requestId || '—')}</dd><dt>Bank ARN</dt><dd class="mono">${esc(r.arn)}</dd><dt>Reason</dt><dd>${esc(r.reason || '—')}</dd><dt>Type</dt><dd>${r.captured && r.amount < r.captured ? 'Partial' : 'Full'}</dd></dl>
-    <h3 style="margin-top:18px">Original payment</h3><dl class="kv"><dt>Txn ID</dt><dd class="mono">${esc(r.txnid)}</dd><dt>PayU ID</dt><dd class="mono">${esc(t.mihpayid || '—')}</dd><dt>Customer</dt><dd>${esc(r.name || '—')}</dd><dt>Mode</dt><dd>${esc(r.mode || '—')}</dd><dt>Captured</dt><dd>${r.captured ? inr(r.captured) : '—'}</dd></dl>
+    ${r.status === 'FAILED' ? `<div class="card" style="background:var(--bad-soft);border-color:transparent;margin-bottom:14px"><b>Refund failed.</b> The payment partner did not accept this refund. You can issue a new one from the payment.</div>` : ''}
+    ${r.status === 'REQUESTED' ? `<div class="card" style="background:var(--warn-soft);border-color:transparent;margin-bottom:14px;font-size:13.5px"><b>Not yet accepted by the payment partner.</b> The refund is recorded but hasn't been confirmed yet: no ${state.mode} payment account is active for your business, or the payment partner could not be reached.</div>` : ''}
+    <h3>Refund</h3><dl class="kv"><dt>Refund ID</dt><dd class="mono">${esc(r.id)}</dd><dt>Refund request ID</dt><dd class="mono">${esc(r.requestId || '—')}</dd><dt>Bank ARN</dt><dd class="mono">${esc(r.arn)}</dd><dt>Reason</dt><dd>${esc(r.reason || '—')}</dd><dt>Type</dt><dd>${r.captured && r.amount < r.captured ? 'Partial' : 'Full'}</dd></dl>
+    <h3 style="margin-top:18px">Original payment</h3><dl class="kv"><dt>Txn ID</dt><dd class="mono">${esc(r.txnid)}</dd><dt>Payment ID</dt><dd class="mono">${esc(t.mihpayid || '—')}</dd><dt>Customer</dt><dd>${esc(r.name || '—')}</dd><dt>Mode</dt><dd>${esc(r.mode || '—')}</dd><dt>Captured</dt><dd>${r.captured ? inr(r.captured) : '—'}</dd></dl>
     <h3 style="margin-top:18px">Progress</h3>${steps.map(([s, d]) => `<p style="font-size:13px;margin:6px 0"><span class="dot ${d ? '' : 'warn'}"></span>${s}</p>`).join('')}
     <p class="muted" style="font-size:12.5px;margin-top:14px">Bank ARN usually arrives 24–72 business hours after the refund is processed.</p>
     <div class="row" style="margin-top:16px"><button class="btn" id="rfview">View payment</button>${OPEN_REFUND.includes(r.status) ? `<button class="btn" id="rfre"><i data-icon=refresh-cw class=li></i> Refresh status</button>` : ''}</div>`);
@@ -271,28 +272,28 @@ function refundDrawer(id){
 
 // Timeline labels for TransactionEvent.toStatus.
 const TXN_EVENT = { INITIATED: 'Payment attempt started', PENDING: 'Pending with the bank', AUTHORIZED: 'Authorised (not yet captured)', SUCCESS: 'Payment captured',
-  FAILURE: 'Payment failed', USER_CANCELLED: 'Cancelled by customer', BOUNCED: 'Bounced', DROPPED: 'Dropped before completion', AUTO_REFUNDED: 'Auto-refunded by PayU' };
+  FAILURE: 'Payment failed', USER_CANCELLED: 'Cancelled by customer', BOUNCED: 'Bounced', DROPPED: 'Dropped before completion', AUTO_REFUNDED: 'Auto-refunded' };
 function txnTimeline(d){
   const items = [['Order created' + (d.order.receipt ? ` · receipt ${esc(d.order.receipt)}` : ''), d.order.createdAt]];
   if (!d.events.length) items.push(['Payment attempt started', d.date]);
   d.events.forEach(e => items.push([`${TXN_EVENT[e.to] || titleCase(e.to)}${e.unmappedStatus ? ` <span class="muted">(${esc(e.unmappedStatus)})</span>` : ''}${e.note ? ` · ${esc(e.note)}` : ''}`, e.date]));
-  if (d.verifiedAt) items.push(['Status confirmed with PayU', d.verifiedAt]);
+  if (d.verifiedAt) items.push(['Status confirmed with the payment partner', d.verifiedAt]);
   d.refunds.forEach(r => items.push([`Refund of ${inr(r.amount)} requested · ${titleCase(r.status)}`, r.date]));
   d.settlements.forEach(s => items.push([`Included in settlement <span class="mono">${esc(s.id)}</span>${s.utr !== '—' ? ` · UTR ${esc(s.utr)}` : ''}`, s.date]));
   items.sort((a, b) => new Date(a[1]) - new Date(b[1]));
   const waiting = ['INITIATED', 'PENDING'].includes(d.status) && !d.events.some(e => e.to === d.status && e.to !== 'INITIATED');
   return items.map(([l, at]) => `<p class="muted" style="font-size:13px;margin:4px 0">● ${l} · ${fmtDate(new Date(at))}</p>`).join('') +
-    (waiting ? `<p class="muted" style="font-size:13px;margin:4px 0">○ Waiting for the final status from PayU</p>` : '');
+    (waiting ? `<p class="muted" style="font-size:13px;margin:4px 0">○ Waiting for the final status from the payment partner</p>` : '');
 }
 function txnDrawer(id){
   const base = D().find(x => x.txnid === id);
   const paint = (t, d) => {
     const refundable = t.amount - t.refunded;
-    const extra = d ? [['Bank reference', d.bankRefNum], ['Card', d.card], ['UPI ID', d.vpa], ['PayU mode', d.payuMode], ['Error code', d.errorCode], ['Completed', d.completedAt && fmtDate(new Date(d.completedAt))]].filter(x => x[1]) : [];
+    const extra = d ? [['Bank reference', d.bankRefNum], ['Card', d.card], ['UPI ID', d.vpa], ['Gateway mode', d.payuMode], ['Error code', d.errorCode], ['Completed', d.completedAt && fmtDate(new Date(d.completedAt))]].filter(x => x[1]) : [];
     openDrawer(`<div class="between" id="txd" data-txn="${esc(t.txnid)}"><h2 style="margin:0">${inr(t.amount)}</h2><button class="x" onclick="closeAll()"><i data-icon=x class=li></i></button></div>
       <p>${statusPill(t.status)} <span class="muted">${fmtDate(t.date)}</span></p>
       ${t.error ? `<div class="card" style="background:var(--bad-soft);border-color:transparent;margin-bottom:14px"><b>Failure reason:</b> ${esc(t.error)}</div>` : ''}
-      <h3>Payment</h3><dl class="kv"><dt>Txn ID</dt><dd class="mono">${esc(t.txnid)}</dd><dt>PayU ID (mihpayid)</dt><dd class="mono">${esc(t.mihpayid)}</dd><dt>Mode</dt><dd>${esc(t.mode)}</dd><dt>Bank / issuer</dt><dd>${esc(t.bank)}</dd><dt>Product info</dt><dd>${esc(t.product || '—')}</dd><dt>Refunded</dt><dd>${inr(t.refunded)}</dd>
+      <h3>Payment</h3><dl class="kv"><dt>Txn ID</dt><dd class="mono">${esc(t.txnid)}</dd><dt>Payment ID</dt><dd class="mono">${esc(t.mihpayid)}</dd><dt>Mode</dt><dd>${esc(t.mode)}</dd><dt>Bank / issuer</dt><dd>${esc(t.bank)}</dd><dt>Product info</dt><dd>${esc(t.product || '—')}</dd><dt>Refunded</dt><dd>${inr(t.refunded)}</dd>
         ${extra.map(([k, v]) => `<dt>${k}</dt><dd class="mono">${esc(v)}</dd>`).join('')}</dl>
       <h3 style="margin-top:18px">Customer</h3><dl class="kv"><dt>Name</dt><dd>${esc(t.name)}</dd><dt>Email</dt><dd>${esc(t.email || '—')}</dd><dt>Phone</dt><dd>${esc(t.phone || '—')}</dd></dl>
       <h3 style="margin-top:18px">Timeline</h3>

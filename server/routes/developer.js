@@ -124,11 +124,11 @@ module.exports = [
     return { credentials: c, apiKeys: k, webhooks: w, deliveries: d, events: EVENTS };
   }],
 
-  // PayU credentials are managed by Bizpole (Super Admin → organisation → PayU accounts). This endpoint stays so older
-  // clients get a clear answer, and each attempt is recorded (docs/PAYU_PROVIDER_CONFIG.md §5.4).
+  // PayU credentials are managed by Bizpole (Super Admin → organisation → provider accounts). This endpoint stays so older
+  // clients get a clear answer, and each attempt is recorded (docs/PAYMENT_PROVIDER_CONFIG.md §5.4).
   ["POST", "/developer/credentials", async (ctx) => {
     await log(ctx, "developer.credential_write_blocked", "PayuCredential", null, { mode: ctx.mode });
-    fail(403, "PayU credentials are managed by Bizpole. Contact Bizpole support to add or change them.", { code: "MANAGED_BY_PLATFORM" });
+    fail(403, "Payment provider credentials are managed by Bizpole. Contact Bizpole support to add or change them.", { code: "MANAGED_BY_PLATFORM" });
   }, { anyRole: true }],
 
   ["POST", "/developer/keys", async (ctx) => {

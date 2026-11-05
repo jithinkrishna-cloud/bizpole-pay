@@ -76,7 +76,7 @@
       <h3 style="margin:4px 0 6px;font-size:20px">Nothing matches "${esc(pr.q)}"</h3><p class="muted" style="margin:0 0 12px">Try a broader word like "refund", "UPI" or "settle", or look across all categories.</p>
       <div class="row" style="gap:8px"><button class="btn sm" id="prclear">Clear search</button></div></div></div></div>`;
     return header + toolbar + recRow + (shown.length ? sections : empty) +
-      `<p class="muted" style="font-size:12.5px;margin:18px 0 0">Payments are processed by PayU. Some products need a business review before they go live.</p>`;
+      `<p class="muted" style="font-size:12.5px;margin:18px 0 0">Payments are processed by our RBI-authorised payment partner. Some products need a business review before they go live.</p>`;
   }
 
   function requestDialog(id){

@@ -2,8 +2,9 @@
 const db = require("../../db");
 const { fail } = require("../../http");
 const { num } = require("../../shape");
-const { paging, dateRange, where, enumList, orderBy, like, text, maskKey, pageOut } = require("../../platform");
+const { paging, dateRange, where, enumList, orderBy, like, text, pageOut } = require("../../platform");
 const { PENDING_ORG, INACTIVE_ORG } = require("./overview");
+const providerConfig = require("../../providers/config");
 
 const STATUSES = ["TEST_ONLY", "ONBOARDING", "SUBMITTED", "UNDER_REVIEW", "ACTION_REQUIRED", "LIVE", "REJECTED", "SUSPENDED", "DEACTIVATED"];
 // UI filter groups → MerchantStatus values.
@@ -57,8 +58,10 @@ async function detail(ctx) {
                 FROM "BankAccount" WHERE "merchantId" = $1 ORDER BY "isPrimary" DESC, "createdAt" DESC`, [id]),
     db.query(`SELECT ms.id, ms.role, ms."createdAt", u.id AS "userId", u.name, u.email, u.status, u."lastLoginAt", u."platformRole"
                 FROM "Membership" ms JOIN "User" u ON u.id = ms."userId" WHERE ms."merchantId" = $1 ORDER BY ms."createdAt"`, [id]),
-    db.query(`SELECT id, mode, "payuMid", "merchantKey", "saltVersion", status, "isDefault", label, source, "issuedAt", "revokedAt"
-                FROM "PayuCredential" WHERE "merchantId" = $1 ORDER BY mode, "isDefault" DESC, "issuedAt" DESC`, [id]),
+    db.query(`SELECT c.id, c.provider, c.mode, c."payuMid", c."merchantKey", c."saltVersion", c.status, c."isDefault", c.label, c.source, c."issuedAt", c."revokedAt",
+                     cu.name AS "createdByName", ru.name AS "revokedByName"
+                FROM "PayuCredential" c LEFT JOIN "User" cu ON cu.id = c."createdById" LEFT JOIN "User" ru ON ru.id = c."revokedById"
+               WHERE c."merchantId" = $1 ORDER BY c.mode, c."isDefault" DESC, c."issuedAt" DESC`, [id]),
     db.query(`SELECT id, mode, name, prefix, "lastUsedAt", "revokedAt", "createdAt" FROM "ApiKey" WHERE "merchantId" = $1 ORDER BY "createdAt" DESC`, [id]),
     db.query(`SELECT e.id, e.mode, e.url, e.events, e.active, e."createdAt",
                      count(d.id)::int AS deliveries, count(d.id) FILTER (WHERE d.status = 'FAILED')::int AS failed, max(d."createdAt") AS "lastDeliveryAt"
@@ -84,8 +87,9 @@ async function detail(ctx) {
     users: members.map((x) => ({ membershipId: x.id, userId: x.userId, name: x.name, email: x.email, role: x.role, status: x.status,
       platformRole: x.platformRole, lastLoginAt: x.lastLoginAt, since: x.createdAt })),
     integrations: {
-      credentials: creds.map((c) => ({ id: c.id, mode: c.mode, payuMid: c.payuMid, merchantKey: maskKey(c.merchantKey), saltVersion: c.saltVersion,
-        status: c.status, isDefault: c.isDefault, label: c.label, source: c.source, issuedAt: c.issuedAt, revokedAt: c.revokedAt })),
+      // Provider accounts (PayU today); fields and labels come from the provider definition.
+      credentials: creds.map(providerConfig.accountView),
+      accountForms: await providerConfig.accountForms(),
       apiKeys: keys,
       webhooks: hooks,
     },

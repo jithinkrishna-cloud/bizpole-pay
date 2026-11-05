@@ -115,7 +115,7 @@
           <div id="hbody">${healthBody()}</div></div>
         <div class="card"><div class="hm-h"><h3><span class="hm-hi">${ic('layers')}</span>Payment modes</h3></div>
           <div class="hm-list">${PAY_MODES.map(([k, l]) => `<div><span>${l}</span>${modeStatus(k)}</div>`).join('')}</div>
-          <p class="muted" style="font-size:12.5px;margin:10px 0 0">Payment modes are enabled on your PayU account. <a class="linkish" href="#/products">See products</a></p></div>
+          <p class="muted" style="font-size:12.5px;margin:10px 0 0">Payment modes are enabled on your Bizpole Pay account. <a class="linkish" href="#/products">See products</a></p></div>
         <div class="card"><div class="hm-h"><h3><span class="hm-hi">${ic('bolt')}</span>Go live your way</h3></div>
           <div class="hm-go">
             <a href="#/checkout"><span class="hm-ico c sm">${ic('page', 18)}</span><span><b>Hosted checkout</b> <span class="pill brand">1–2 days</span><small>Redirect to our prebuilt payment page.</small></span><em><i data-icon=chevron-right class=li></i></em></a>

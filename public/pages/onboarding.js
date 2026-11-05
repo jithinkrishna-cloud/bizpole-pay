@@ -30,7 +30,7 @@
     KYC_DOCUMENTS: [['What you need', ['Clear scans or photos (PDF, JPG or PNG, up to 5 MB each)', 'Masked Aadhaar only — the first 8 digits hidden']],
       ['Why we ask', 'Documents depend on your business type. They are shared only with our payment partner for verification under RBI KYC rules.']],
   };
-  // Labels for PayU's per-area onboarding statuses (PayuOnboardingStatus.area); unknown areas are shown as-is.
+  // Labels for the payment partner's per-area onboarding statuses (onboarding status area); unknown areas are shown as-is.
   const AREA_LABEL = { account: 'Account', kyc: 'KYC', pan_verification: 'PAN verification', document: 'KYC documents', bank: 'Bank account', website: 'Website review', agreement: 'Agreement e-sign', vkyc: 'Video KYC', settlement: 'Settlement' };
   const STATUS_LABEL = { TEST_ONLY: 'Not started', ONBOARDING: 'In progress', SUBMITTED: 'Submitted', UNDER_REVIEW: 'Under review', ACTION_REQUIRED: 'Action needed', LIVE: 'Live', REJECTED: 'Rejected', SUSPENDED: 'Suspended', DEACTIVATED: 'Deactivated' };
   const STEP_LABEL = { NOT_STARTED: ['', 'Not started'], IN_PROGRESS: ['warn', 'Draft saved'], SUBMITTED: ['brand', 'Submitted'], VERIFIED: ['ok', 'Verified'], REJECTED: ['bad', 'Rejected'] };
@@ -43,7 +43,7 @@
     web: { url: '', app: '', pol: Object.fromEntries(POL.map(p => [p[0], { on: false, url: '' }])), check: null },
     kyc: { files: {}, masked: false },
   });
-  // srv = last GET /onboarding response (merchant status, saved PAN last 4, primary bank, PayU areas, timeline).
+  // srv = last GET /onboarding response (merchant status, saved PAN last 4, primary bank, verification areas, timeline).
   const ob = { view: null, cur: null, err: {}, tried: {}, decl: false, saving: false, mid: null, srv: null, d: blank() };
   const EDITABLE = ['TEST_ONLY', 'ONBOARDING', 'ACTION_REQUIRED'];
   const srv = () => ob.srv || { merchantStatus: 'TEST_ONLY', editable: true, pan: {}, steps: {}, bank: null, documents: [], payu: [], timeline: [] };
@@ -310,7 +310,7 @@
           : `<button class="btn" id="ob-draft">Save draft</button><button class="btn primary" id="ob-next">${isKyc ? 'Save draft & review' : i === STEPS.length - 1 ? 'Save & review' : 'Save & continue <i data-icon=chevron-right class=li></i>'}</button>`}</div></div>
     <div class="ob-side"><div class="card"><h3>${help[0][0]}</h3><ul class="ob-ul">${help[0][1].map(x => `<li>${x}</li>`).join('')}</ul></div>
       <div class="card" style="flex:1"><h3>${help[1][0]}</h3><p class="muted" style="margin:0;font-size:13.5px">${help[1][1]}</p>
-        <div class="ob-sec"><span><i data-icon=lock class=li></i></span><span class="muted">PAN and account numbers are stored encrypted. Details are shared only with our payment partner, PayU, for verification.</span></div></div></div>`;
+        <div class="ob-sec"><span><i data-icon=lock class=li></i></span><span class="muted">PAN and account numbers are stored encrypted. Details are shared only with our RBI-authorised payment partner, for verification.</span></div></div></div>`;
   }
   function summary(k){
     const d = ob.d, last4 = d.pan.pan ? d.pan.pan.slice(-4) : panSaved() ? srv().pan.last4 : '', a4 = acctLast4(), b = bankSaved();
@@ -336,7 +336,7 @@
         ${!done && missing.length ? `<div class="notice bad">Finish ${missing.map(([k, t]) => `<button class="linkish" data-goto="${k}" style="color:var(--bad);text-decoration:underline">${t}</button>`).join(', ')} before you submit.${missing.some(([k]) => k === 'KYC_DOCUMENTS') ? ' KYC documents can\'t be uploaded yet because no file storage is connected, so the application can\'t be submitted for now.' : ''}</div>` : ''}</div>
       <div class="ob-rvgrid">${STEPS.map(card).join('')}</div>
       <div class="card ob-decl"><div class="ob-f ${ob.err.decl ? 'has-err' : ''}" data-p="decl"><label class="ck" style="align-items:flex-start"><input type="checkbox" id="ob-decl" ${ob.decl || done ? 'checked' : ''} ${done || !can ? 'disabled' : ''} style="margin-top:3px">
-        <span>I confirm these details are true and that I'm authorised to open this account for <b>${esc(ob.d.biz.legal || 'my business')}</b>. I agree to the Bizpole Pay merchant terms and allow Bizpole Pay to share my KYC with PayU for verification.</span></label>
+        <span>I confirm these details are true and that I'm authorised to open this account for <b>${esc(ob.d.biz.legal || 'my business')}</b>. I agree to the Bizpole Pay merchant terms and allow Bizpole Pay to share my KYC with its RBI-authorised payment partner for verification.</span></label>
         ${errBox('decl')}</div>
         <div class="ob-actions" style="margin-top:12px"><button class="btn" data-goto="${STEPS[STEPS.length - 1][0]}"><i data-icon=chevron-left class=li></i> Back</button><span style="flex:1"></span>
           ${done ? '<button class="btn primary" data-s="status">View application status</button>' : can ? `<button class="btn primary" id="ob-submit" ${missing.length ? 'disabled' : ''}>Submit application</button>` : ''}</div></div></div>`;
@@ -350,16 +350,16 @@
       <div class="card ob-stathead ${approved() ? 'ok' : ''}"><div class="between" style="flex-wrap:wrap;align-items:flex-start"><div><div class="ob-kicker">APPLICATION STATUS</div>
           <h2 class="ob-h2">${approved() ? '✓ Approved — your live account is active' : esc(STATUS_LABEL[st] || st)}</h2>
           <p class="muted" style="margin:2px 0 0">${approved() ? 'Switch to live mode to accept real payments.'
-            : `Submitted${sub ? ' ' + fmtDate(sub) : ''}. Sending applications to PayU isn't connected yet, so your application is saved in Bizpole Pay and hasn't reached PayU. This page updates when review starts.`}</p></div>
+            : `Submitted${sub ? ' ' + fmtDate(sub) : ''}. Sending applications for verification isn't connected yet, so your application is saved in Bizpole Pay and hasn't been sent for verification. This page updates when review starts.`}</p></div>
           ${approved() ? '<button class="btn primary" id="ob-golive">Switch to live mode</button>' : statusPill(st)}</div>
         <div class="ob-stages">${stages.map(([l, d], i) => `<div class="ob-stage ${d ? 'done' : i === curStage ? 'cur' : ''}"><span class="n">${d ? '✓' : i + 1}</span><span>${l}</span></div>`).join('<i></i>')}</div></div>
       <div class="ob-stgrid"><div class="card"><h3>Your steps</h3><div class="tbl-wrap"><table><thead><tr><th>Step</th><th>Status</th><th>Notes</th></tr></thead><tbody>
           ${STEPS.map(([k, t]) => { const s = r.steps[k] || {}, [cls, lbl] = STEP_LABEL[s.status || 'NOT_STARTED'];
             return `<tr><td><b>${t}</b></td><td><span class="pill ${cls}">${lbl}</span></td><td class="muted">${esc(s.remarks || (s.submittedAt ? 'Submitted ' + fmtDate(new Date(s.submittedAt)) : '—'))}</td></tr>`; }).join('')}</tbody></table></div>
-          <h3 style="margin-top:18px">Verification by PayU</h3>
+          <h3 style="margin-top:18px">Verification</h3>
           ${r.payu.length ? `<div class="tbl-wrap"><table><thead><tr><th>Area</th><th>Status</th><th>Remarks</th><th>Updated</th></tr></thead><tbody>
             ${r.payu.map(a => `<tr><td><b>${esc(AREA_LABEL[a.area] || a.area)}</b></td><td><span class="pill">${esc(a.status)}</span></td><td class="muted">${esc(a.remarks || '—')}</td><td>${fmtDate(new Date(a.changedAt))}</td></tr>`).join('')}</tbody></table></div>`
-            : '<p class="muted" style="margin:0;font-size:13.5px">No verification updates from PayU yet. PAN, bank, website, agreement e-sign and video KYC checks will show here once your application reaches PayU.</p>'}</div>
+            : '<p class="muted" style="margin:0;font-size:13.5px">No verification updates yet. PAN, bank, website, agreement e-sign and video KYC checks will show here once your application is sent for verification.</p>'}</div>
         <div class="card"><h3>Timeline</h3><div class="ob-tl">${r.timeline.slice().reverse().map(e => `<div class="ob-ev"><span class="dot ${e.action === 'onboarding.submitted' ? '' : 'warn'}"></span><div><div>${esc(evText(e))}</div><div class="muted" style="font-size:12px">${fmtDate(new Date(e.at))}${e.by ? ' · ' + esc(e.by) : ''}</div></div></div>`).join('') || '<p class="muted" style="margin:0">No activity yet.</p>'}</div></div></div></div>`;
   }
   function view(){

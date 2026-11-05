@@ -213,23 +213,26 @@
     ], o.users, empty("No users", "This organization has no members.")), { sub: `${o.users.length} ${o.users.length === 1 ? "person" : "people"}` });
   }
 
-  const SOURCE = { MERCHANT: "Added by organization", PLATFORM: "Assigned by Bizpole", ONBOARDING: "PayU onboarding" };
+  const SOURCE = { MERCHANT: "Added by organization", PLATFORM: "Assigned by Bizpole", ONBOARDING: "Provider onboarding" };
+  // Account fields come from the provider definition (server/providers/*.js): each row carries its own labelled values.
   function integrationsTab(o) {
-    const i = o.integrations;
+    const i = o.integrations, forms = i.accountForms;
     const has = (m) => i.credentials.some((c) => c.mode === m && c.isDefault && c.status === "ACTIVE");
-    const actions = `<div class="btn-row"><button class="btn sm" type="button" data-assign="test">${has("TEST") ? "Replace test account" : "Assign test account"}</button>
-      <button class="btn sm" type="button" data-assign="live">${has("LIVE") ? "Replace live account" : "Assign live account"}</button></div>`;
-    return ui.panel("PayU accounts", ui.table([
+    const btn = (env) => {
+      const p = forms[env.toUpperCase()].provider.name;
+      return `<button class="btn sm" type="button" data-assign="${env}">${has(env.toUpperCase()) ? "Replace" : "Assign"} ${env} ${esc(p)} account</button>`;
+    };
+    const actions = `<div class="btn-row">${btn("test")}${btn("live")}</div>`;
+    return ui.panel("Provider accounts", ui.table([
       { label: "Mode", render: (c) => ui.modeTag(c.mode) },
-      { label: "PayU MID", render: (c) => `<span class="mono">${esc(c.payuMid)}</span>${c.label ? `<div class="muted" style="font-size:12px">${esc(c.label)}</div>` : ""}` },
-      { label: "Merchant key", render: (c) => `<span class="mono">${esc(c.merchantKey)}</span>` },
-      { label: "Salt", render: (c) => `${esc(c.saltVersion)} <span class="muted">(never shown)</span>` },
+      { label: "Provider", render: (c) => `${esc(c.provider.name)}${c.label ? `<div class="muted" style="font-size:12px">${esc(c.label)}</div>` : ""}` },
+      { label: "Account", render: (c) => c.fields.map((f) => `<div style="font-size:12.5px"><span class="muted">${esc(f.label)}:</span> ${f.mono ? `<span class="mono">${esc(f.value)}</span>` : esc(f.value)}</div>`).join("") },
       { label: "Status", render: (c) => ui.pill(c.status) + (c.isDefault ? ' <span class="tag">In use</span>' : "") },
-      { label: "Set up by", render: (c) => esc(SOURCE[c.source] || "—") },
+      { label: "Set up by", render: (c) => esc(SOURCE[c.source] || "—") + (c.createdBy ? `<div class="muted" style="font-size:12px">${esc(c.createdBy)}</div>` : "") },
       { label: "Issued", render: (c) => when(c.issuedAt), cls: "nowrap" },
-      { label: "", render: (c) => (c.status === "REVOKED" ? "" : `<button class="btn sm" type="button" data-revoke="${esc(c.id)}" data-mode="${esc(c.mode)}" data-mid="${esc(c.payuMid)}">Revoke</button>`), cls: "r" },
-    ], i.credentials, empty("No PayU accounts", "Assign a test account so this organization can take test payments.")),
-      { sub: "Keys are masked. Salts never leave the server. Live changes ask for your password.", right: actions })
+      { label: "", render: (c) => (c.status === "REVOKED" ? "" : `<button class="btn sm" type="button" data-revoke="${esc(c.id)}" data-mode="${esc(c.mode)}" data-ref="${esc(c.provider.name + " " + c.reference)}">Revoke</button>`), cls: "r" },
+    ], i.credentials, empty("No provider accounts", "Assign a test account so this organization can take test payments.")),
+      { sub: "Keys are masked. Secrets never leave the server. Live changes ask for your password.", right: actions })
     + ui.panel("Bizpole Pay API keys", ui.table([
       { label: "Name", render: (k) => esc(k.name) },
       { label: "Key prefix", render: (k) => `<span class="mono">${esc(k.prefix)}</span>` },
@@ -249,39 +252,40 @@
     ], i.webhooks, empty("No webhook endpoints", "The organization hasn't registered a webhook URL.")));
   }
 
-  // Assign / replace / revoke an organization's PayU account (POST /super/orgs/:id/payu-accounts[/:credId/revoke]).
+  // Assign / replace / revoke an organization's provider account (POST /super/orgs/:id/provider-accounts[/:credId/revoke]).
+  // New accounts use the provider active in that mode (Integrations → Provider settings).
   function bindAccounts(view, o) {
-    const base = "/super/orgs/" + encodeURIComponent(o.id) + "/payu-accounts";
+    const base = "/super/orgs/" + encodeURIComponent(o.id) + "/provider-accounts";
     const done = (r, msg) => { if (r) { SA.toast(msg); SA.render(); } };
     view.querySelectorAll("[data-assign]").forEach((b) => b.addEventListener("click", async () => {
-      const env = b.dataset.assign, live = env === "live";
+      const env = b.dataset.assign, live = env === "live", form = o.integrations.accountForms[env.toUpperCase()], p = form.provider;
       const current = o.integrations.credentials.find((c) => c.mode === env.toUpperCase() && c.isDefault && c.status === "ACTIVE");
       done(await SA.form({
-        title: `${current ? "Replace" : "Assign"} ${env} PayU account`,
-        intro: `For ${o.name}. Copy these from the PayU ${env} dashboard for this organization. The salt is encrypted and can't be viewed after saving.`,
+        title: `${current ? "Replace" : "Assign"} ${env} ${p.name} account`,
+        intro: `For ${o.name}. Copy these from the ${p.name} ${env} dashboard for this organization. Secrets are encrypted and can't be viewed after saving.`
+          + (form.enabled ? "" : ` ${p.name} ${env} payments are paused in Provider settings.`),
         fields: [
-          { name: "mid", label: "Merchant ID (MID)", mono: true, required: true },
-          { name: "key", label: "Merchant key", mono: true, required: true },
-          { name: "salt", label: "Salt", type: "secret", mono: true, required: true, help: "Salts longer than 32 characters are saved as version 2." },
-          { name: "label", label: "Label", placeholder: live ? "Live MID" : "Test MID", required: false },
-          ...(current ? [{ name: "revokePrevious", label: `Revoke the current account (MID ${current.payuMid})`, type: "checkbox",
+          ...form.fields.map((f) => ({ name: f.key, label: f.label, type: f.type === "secret" ? "secret" : "text", mono: f.mono, required: true, help: f.help })),
+          { name: "label", label: "Label", placeholder: `${live ? "Live" : "Test"} ${p.name}`, required: false },
+          ...(current ? [{ name: "revokePrevious", label: `Revoke the current account (${current.provider.name} ${current.reference})`, type: "checkbox",
             help: "Otherwise it is kept as an inactive account in this list." }] : []),
         ],
         submitLabel: current ? "Replace account" : "Assign account", confirmPassword: live,
         onSubmit: (v) => SA.api(base, {}, { method: "POST", withMode: false,
-          body: { mode: env, mid: v.mid, key: v.key, salt: v.salt, label: v.label, revokePrevious: !!v.revokePrevious, ...(live ? { password: v.password } : {}) } }),
-      }), `${live ? "Live" : "Test"} PayU account saved`);
+          body: { mode: env, provider: p.id, fields: Object.fromEntries(form.fields.map((f) => [f.key, v[f.key]])), label: v.label,
+            revokePrevious: !!v.revokePrevious, ...(live ? { password: v.password } : {}) } }),
+      }), `${live ? "Live" : "Test"} ${p.name} account saved`);
     }));
     view.querySelectorAll("[data-revoke]").forEach((b) => b.addEventListener("click", async () => {
       const live = b.dataset.mode === "LIVE";
       done(await SA.form({
-        title: `Revoke PayU account ${b.dataset.mid}?`,
+        title: `Revoke ${b.dataset.ref}?`,
         intro: `${o.name} can't use this ${live ? "live" : "test"} account any more. Payments already made are not affected.`,
         fields: [{ name: "reason", label: "Reason", required: false, placeholder: "For example: salt rotated" }],
         submitLabel: "Revoke", danger: true, confirmPassword: live,
         onSubmit: (v) => SA.api(`${base}/${encodeURIComponent(b.dataset.revoke)}/revoke`, {}, { method: "POST", withMode: false,
           body: { reason: v.reason, ...(live ? { password: v.password } : {}) } }),
-      }), "PayU account revoked");
+      }), "Account revoked");
     }));
   }
 

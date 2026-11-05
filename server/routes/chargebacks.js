@@ -40,7 +40,7 @@ async function list(merchantId, mode, { id = null, from = null, to = null } = {}
     const raised = c.raisedAt || c.createdAt;
     const timeline = [];
     if (c.raisedAt) timeline.push([c.raisedAt, "Chargeback raised by issuing bank", [c.reason, c.reasonCode && `code ${c.reasonCode}`].filter(Boolean).join(" · ")]);
-    timeline.push([c.createdAt, "Case received from PayU", c.payuStatus ? `PayU status: ${c.payuStatus}` : ""]);
+    timeline.push([c.createdAt, "Case received from the payment network", c.payuStatus ? `Network status: ${c.payuStatus}` : ""]);
     logs.filter((l) => l.entityId === c.id).forEach((l) => timeline.push([l.createdAt, AUDIT_LABEL[l.action] || l.action, (l.meta && l.meta.note) || ""]));
     timeline.sort((a, b) => a[0] - b[0]);
     return {
@@ -74,7 +74,7 @@ module.exports = [
   ["POST", "/chargebacks/:id/accept", async (ctx) => {
     const { auth, mode } = ctx;
     const c = await findCase(ctx);
-    if (!ACTIONABLE.includes(c.status)) fail(409, CLOSED.includes(c.status) ? "This chargeback is already closed." : "This chargeback is with PayU or the bank and can't be accepted now.");
+    if (!ACTIONABLE.includes(c.status)) fail(409, CLOSED.includes(c.status) ? "This chargeback is already closed." : "This chargeback is with the payment network or the bank and can't be accepted now.");
     await db.tx(async (t) => {
       const upd = await t.q(
         `UPDATE "Chargeback" SET status='ACCEPTED', "updatedAt"=now() WHERE id=$1 AND "merchantId"=$2 AND mode=$3 AND status = ANY($4) RETURNING id`,
@@ -82,7 +82,7 @@ module.exports = [
       );
       if (!upd.length) fail(409, "This chargeback changed meanwhile. Refresh and try again.");
       await audit(t, { merchantId: auth.merchantId, userId: auth.user.id, mode, action: "chargeback.accepted", entity: "Chargeback", entityId: c.id, ip: clientIp(ctx.req),
-        meta: { previousStatus: c.status, payuSynced: false, note: "Recorded in Paynest · not yet sent to PayU" } });
+        meta: { previousStatus: c.status, payuSynced: false, note: "Recorded in Bizpole Pay · not yet sent to the payment network" } });
     });
     const [out] = await list(auth.merchantId, mode, { id: c.id });
     return { ...out, payuSynced: false };
@@ -93,7 +93,7 @@ module.exports = [
     const c = await findCase(ctx);
     if (!ACTIONABLE.includes(c.status)) fail(409, "This chargeback isn't waiting for evidence.");
     // The router replaces 5xx messages with a generic one; `extra.error` keeps this one visible.
-    const msg = "Evidence upload isn't available yet: document storage and the PayU dispute API are not connected. Submit your documents to PayU directly before the deadline.";
+    const msg = "Evidence upload isn't available yet: document storage and the dispute service are not connected. Contact Bizpole support with your documents before the deadline.";
     fail(501, msg, { error: msg, code: "NOT_CONFIGURED" });
   }],
 ];

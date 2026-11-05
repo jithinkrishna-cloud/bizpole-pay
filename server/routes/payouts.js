@@ -138,7 +138,7 @@ module.exports = [
     const b = await db.one(`SELECT id, verified FROM "Beneficiary" WHERE id=$1 AND "merchantId"=$2 AND mode=$3`, [params.id, auth.merchantId, mode]);
     if (!b) fail(404, "Beneficiary not found.");
     if (b.verified) fail(409, "This beneficiary is already verified.");
-    fail(501, "Beneficiary verification needs the PayU Payouts API, which isn't connected to this account yet. The beneficiary stays unverified.");
+    fail(501, "Beneficiary verification needs the payouts service, which isn't connected to this account yet. The beneficiary stays unverified.");
   }],
 
   ["POST", "/payouts", async (ctx) => {

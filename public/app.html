@@ -1582,7 +1582,7 @@
       /* ---------- auth pages ---------- */
       const authArt = `<div class="auth-art"><a class="logo" href="index.html">Bizpole <em>Pay</em></a>
   <div><h1>Every rupee,<br>accounted for.</h1><p>Collect payments over UPI, cards, net banking and wallets. Track settlements and refunds in one place.</p></div>
-  <p class="mono" style="opacity:.6">Payments processed by PayU</p></div>`;
+  <p class="mono" style="opacity:.6">Payments processed by our RBI-authorised payment partner</p></div>`;
       const formErr = `<p id="ferr" role="alert" style="color:var(--bad);font-size:13px;min-height:18px;margin:8px 0 0"></p>`;
       const AUTH = {
         login:
@@ -1779,10 +1779,20 @@
         };
         document.onclick = () =>
           $("#pop") && $("#pop").classList.remove("open");
-        $("#logout").onclick = async () => {
-          await api("/auth/logout", { method: "POST", mode: false }).catch(() => {});
-          state.user = null;
-          go("login");
+        // Ask before signing out; the dialog closes on Cancel, Escape or a click outside.
+        $("#logout").onclick = () => {
+          openModal(`<h2 style="margin:0 0 6px;font-size:20px">Log out?</h2>
+            <p class="muted" style="margin:0">You'll need to sign in again to use Bizpole Pay on this device.</p>
+            <div class="row" style="margin-top:18px;justify-content:flex-end"><button class="btn" id="lo-no">Cancel</button><button class="btn primary" id="lo-yes">Log out</button></div>`);
+          $("#lo-no").onclick = closeAll;
+          $("#lo-yes").focus();
+          $("#lo-yes").onclick = async () => {
+            $("#lo-yes").disabled = true;
+            await api("/auth/logout", { method: "POST", mode: false }).catch(() => {});
+            closeAll();
+            state.user = null;
+            go("login");
+          };
         };
         $("#menu").onclick = (e) => {
           e.stopPropagation();

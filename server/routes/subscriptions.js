@@ -109,7 +109,7 @@ module.exports = [
   // A mandate is created from a PayU SI registration payment (si=1). That flow is not connected yet.
   ["POST", "/subscriptions/mandates", async ({ auth, mode }) => {
     await payu.requireCredential(auth.merchantId, mode);
-    fail(501, "Mandate registration through PayU isn't connected yet. Customers can't register a mandate until it is.");
+    fail(501, "Mandate registration isn't connected yet. Customers can't register a mandate until it is.");
   }],
 
   // Pause / resume: our own scheduling switch. No pre-debit notice or debit is raised for a paused mandate.
@@ -135,7 +135,7 @@ module.exports = [
     const m = await ownMandate(auth, mode, params.id);
     if (!["ACTIVE", "PAUSED", "PENDING_REGISTRATION"].includes(m.status)) fail(409, "This mandate is already closed.");
     await payu.requireCredential(auth.merchantId, mode);
-    fail(501, "Revoking mandates through PayU isn't connected yet. The mandate is unchanged.");
+    fail(501, "Revoking mandates isn't connected yet. The mandate is unchanged.");
   }],
 
   // Pre-debit notice for the next debit (pre_debit_SI). Not connected yet.
@@ -143,6 +143,6 @@ module.exports = [
     const m = await ownMandate(auth, mode, params.id);
     if (m.status !== "ACTIVE") fail(409, "Pre-debit notices can only be sent for an active mandate.");
     await payu.requireCredential(auth.merchantId, mode);
-    fail(501, "Sending pre-debit notices through PayU isn't connected yet. No notice was sent.");
+    fail(501, "Sending pre-debit notices isn't connected yet. No notice was sent.");
   }],
 ];

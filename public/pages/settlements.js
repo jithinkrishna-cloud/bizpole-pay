@@ -72,7 +72,7 @@
     const any = all().length;
     return `<tr><td colspan="8"><div class="empty-state"><div class="box"><i data-icon=landmark class=li></i></div><div><p class="muted" style="margin:0;font-size:12px;letter-spacing:.06em">NO SETTLEMENTS FOUND</p>
       <h3 style="margin:4px 0 6px;font-size:20px">${any ? 'Nothing matches these filters' : 'No settlements yet'}</h3>
-      <p class="muted" style="margin:0 0 12px">${any ? 'Clear the search or status filter, or widen the date range.' : `Successful ${isLive() ? 'live' : 'test'} payments are settled to your bank account the next working day. Settlements appear here once PayU reports them.`}</p>
+      <p class="muted" style="margin:0 0 12px">${any ? 'Clear the search or status filter, or widen the date range.' : `Successful ${isLive() ? 'live' : 'test'} payments are settled to your bank account the next working day. Settlements appear here once the payment partner reports them.`}</p>
       <div class="row" style="gap:8px">${any ? '<button class="btn sm" id="seclear">Clear filters</button><button class="btn sm" id="se30">Show last 30 days</button>' : '<a class="btn sm" href="#/transactions">View transactions</a>'}</div></div></div></td></tr>`;
   }
 
@@ -96,7 +96,7 @@
   }
 
   function feeBreakdown(){
-    // Actual fee and GST per settled payment, from PayU's settlement lines.
+    // Actual fee and GST per settled payment, from the payment partner's settlement lines.
     const recent = all().filter(s => s.date.getTime() >= now.getTime() - 7 * 864e5), list = inf().feesByMode;
     const tot = list.reduce((a, m) => a + m.fee + m.tax, 0), max = Math.max(1, ...list.map(m => m.fee + m.tax));
     const sum = k => list.reduce((a, m) => a + m[k], 0);
@@ -159,7 +159,7 @@
     $('#sdl').onclick = () => { const list = rows(); download(`bizpolepay-settlements-${st.range}.csv`, csvFor(list)); toast(`Downloaded ${list.length} settlements`); };
   };
 
-  // Breakdown rows; carry-forward rows only when PayU reported them (they are 0 otherwise).
+  // Breakdown rows; carry-forward rows only when the payment partner reported them (they are 0 otherwise).
   function lines(s){
     return [['Gross collections', s.gross], ['Gateway fee', -s.fee], ['GST on fee', -s.tax], ['Refunds adjusted', -s.ref], ['Chargebacks adjusted', -(s.chargebacks || 0)],
       ...(s.carriedIn ? [['Carried in from previous settlement', -s.carriedIn]] : []), ...(s.carriedOut ? [['Shortfall carried forward', s.carriedOut]] : [])];
@@ -174,7 +174,7 @@
       const acct = d && d.account ? `${esc(d.account.bankName || 'Bank account')} ••••${esc(d.account.last4)}` : bankOr('—');
       openDrawer(`<div class="between" id="sdrw" data-sid="${esc(s.dbId)}"><h2 style="margin:0">${inr(s.net)}</h2><button class="x" onclick="closeAll()"><i data-icon=x class=li></i></button></div>
         <p>${statusPill(s.status)} <span class="muted">${esc(s.id)} · ${s.status === 'PROCESSED' ? `paid ${dayLabel(s.date)}` : `reported ${dayLabel(s.date)}`}</span></p>
-        ${s.status === 'ON_HOLD' ? `<div class="card" style="background:var(--warn-soft);border-color:transparent;margin-bottom:14px;font-size:13.5px"><b>On hold.</b> PayU is holding this settlement. Check your email from PayU or contact support.</div>` : ''}
+        ${s.status === 'ON_HOLD' ? `<div class="card" style="background:var(--warn-soft);border-color:transparent;margin-bottom:14px;font-size:13.5px"><b>On hold.</b> The payment partner is holding this settlement. Contact Bizpole support for details.</div>` : ''}
         ${s.status === 'FAILED' ? `<div class="card" style="background:var(--bad-soft);border-color:transparent;margin-bottom:14px;font-size:13.5px"><b>Payout failed.</b> The bank transfer did not go through. Check your settlement bank account details.</div>` : ''}
         <h3>Breakdown</h3>
         <dl class="stl-lines">${lines(s).map(([l, v]) => `<dt class="${v ? '' : 'muted'}">${l}</dt><dd class="${v ? '' : 'muted'}">${v ? inr(v) : '—'}</dd>`).join('')}<dt class="tot">Net settled</dt><dd class="tot">${inr(s.net)}</dd></dl>
@@ -183,7 +183,7 @@
         <h3 style="margin-top:18px">Included payments (${d ? caps.length : s.count})</h3>
         ${!d ? '<p class="muted" id="sload" style="font-size:13px">Loading settlement lines…</p>'
           : caps.length ? `<div class="stl-txns">${caps.map(l => `<div><span><span class="mono">${esc(l.txnid)}</span><span class="muted" style="font-size:12px"> · ${esc(l.name)}</span></span><span class="muted">${esc(l.mode)}</span><b>${inr(l.gross)}</b></div>`).join('')}</div>`
-          : '<p class="muted" style="font-size:13px">PayU did not report payment lines for this settlement.</p>'}
+          : '<p class="muted" style="font-size:13px">No payment lines were reported for this settlement.</p>'}
         ${others.length ? `<h3 style="margin-top:18px">Adjustments (${others.length})</h3><div class="stl-txns">${others.map(l => `<div><span><span class="mono">${esc(l.txnid)}</span><span class="muted" style="font-size:12px"> · ${ACTION[l.action] || l.action}</span></span><span class="muted">${esc(l.mode)}</span><b>${inr(l.net)}</b></div>`).join('')}</div>` : ''}
         <div class="row" style="margin-top:18px"><button class="btn primary" id="sreport" style="flex-basis:100%" ${d ? '' : 'disabled'}><i data-icon=download class=li></i> Download settlement report</button><a class="btn" href="#/transactions">View transactions</a></div>`);
       const c = $('#sutr'); if (c) c.onclick = () => { navigator.clipboard && navigator.clipboard.writeText(s.utr); toast('UTR copied'); };
@@ -191,7 +191,7 @@
         if (!d) return;
         const q = v => `"${String(v).replace(/"/g, '""')}"`;
         const csv = `settlement_id,${q(s.id)}\nutr,${s.utr === '—' ? '' : q(s.utr)}\nstatus,${s.status}\nsettlement_date,${s.date.toISOString().slice(0, 10)}\n\nline,amount\n` +
-          lines(s).map(([l, v]) => `${l},${rupees(v)}`).join('\n') + `\nNet settled,${rupees(s.net)}\n\ntype,txnid,payu_id,payment_mode,customer,gross,fee,gst,net\n` +
+          lines(s).map(([l, v]) => `${l},${rupees(v)}`).join('\n') + `\nNet settled,${rupees(s.net)}\n\ntype,txnid,payment_id,payment_mode,customer,gross,fee,gst,net\n` +
           d.lines.map(l => [ACTION[l.action] || l.action, q(l.txnid), q(l.payuId), q(l.mode), q(l.name), rupees(l.gross), rupees(l.fee), rupees(l.tax), rupees(l.net)].join(',')).join('\n') + '\n';
         download(`bizpolepay-${s.id}.csv`, csv); toast(`Settlement report for ${s.id} downloaded`);
       };
