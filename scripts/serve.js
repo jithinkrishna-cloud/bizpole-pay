@@ -13,6 +13,8 @@ const types = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; ch
 
 http.createServer((req, res) => {
   const url = decodeURIComponent(req.url.split("?")[0]);
+  // Public payment pages (/pay/...) are served by the API, as on Vercel (vercel.json rewrite).
+  if (url.startsWith("/pay/")) return handle(req, res, url);
   if (url === "/api" || url.startsWith("/api/")) {
     // Dev only: let pages served by another local static server (VS Code Live Server :5500, etc.) call the API.
     const origin = req.headers.origin || "";

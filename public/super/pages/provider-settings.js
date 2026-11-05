@@ -113,8 +113,15 @@
         <div class="btn-row" style="margin-top:14px"><button class="btn" type="button" id="pc-shared">${sh.current ? "Replace" : "Add shared test account"}</button>
           ${sh.current && sh.current.source === "database" ? '<button class="btn" type="button" id="pc-shared-clear">Remove</button>' : ""}</div></div>`);
 
+    // Where the provider sends payment notifications for this connection (same address for Test and Live).
+    const hookUrl = `${data.webhookBase || location.origin}/api/webhooks/${conn.id}`;
+    const hook = ui.panel("Webhook address", `<div class="panel-body">
+        <p class="muted" style="margin:0 0 10px;font-size:13px">Paste this into the ${esc(type)} ${env} dashboard as the payment webhook (success and failure). Payments are confirmed even when the customer closes the browser.</p>
+        <div class="btn-row"><span class="mono" style="word-break:break-all;font-size:13px">${esc(hookUrl)}</span><button class="btn sm" type="button" id="pc-hook">Copy</button></div></div>`);
+
     const body = groups.length > 1 ? `<div class="grid g2">${groups.slice(0, 2).join("")}</div>${groups.slice(2).join("")}` : groups.join("");
-    view.innerHTML = head + tabs + status + body + shared + footer(live);
+    view.innerHTML = head + tabs + status + hook + body + shared + footer(live);
+    view.querySelector("#pc-hook").addEventListener("click", () => { try { navigator.clipboard.writeText(hookUrl); SA.toast("Webhook address copied"); } catch { SA.toast("Copy it manually", "bad"); } });
 
     const $ = (s) => view.querySelector(s);
     const after = (r) => { if (r) SA.render(); };

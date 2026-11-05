@@ -3,6 +3,9 @@
   "framework": null,
   "buildCommand": "",
   "outputDirectory": "public",
-  "rewrites": [{ "source": "/api/:path*", "destination": "/api/index?route=:path*" }],
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "/api/index?route=:path*" },
+    { "source": "/pay/:path*", "destination": "/api/index?route=pay/:path*" }
+  ],
   "functions": { "api/index.js": { "maxDuration": 30 } }
 }

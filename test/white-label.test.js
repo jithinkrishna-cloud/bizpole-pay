@@ -21,7 +21,7 @@ test("merchant pages and the public site never name the payment provider", () =>
 });
 
 test("API errors sent to merchants never name the payment provider", () => {
-  const files = ["server/payu.js", ...ls("server/routes", ".js")];
+  const files = ["server/payu.js", "server/payments-core.js", "server/pay-pages.js", ...ls("server/routes", ".js")];
   const hits = [];
   // fail(status, "message"…) – the message is returned to the browser as { error }.
   const FAIL = /fail\(\s*\d{3}\s*,\s*(?:[^,()]*\?\s*)?(["'`])((?:\\.|(?!\1)[^\\])*)\1/g;

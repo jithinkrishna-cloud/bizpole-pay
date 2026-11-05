@@ -18,8 +18,14 @@ function compile(routes) {
   });
 }
 
-async function readBody(req) {
-  if (req.body !== undefined) return typeof req.body === "string" ? safeJson(req.body) : req.body;
+// JSON by default. Routes with opts.form (provider callbacks) also accept application/x-www-form-urlencoded.
+async function readBody(req, { form = false } = {}) {
+  const isForm = form && /application\/x-www-form-urlencoded/i.test(String(req.headers["content-type"] || ""));
+  const parse = (text) => (isForm ? Object.fromEntries(new URLSearchParams(text)) : safeJson(text));
+  if (req.body !== undefined) {
+    if (Buffer.isBuffer(req.body)) return parse(req.body.toString("utf8"));
+    return typeof req.body === "string" ? parse(req.body) : req.body;
+  }
   const chunks = [];
   let size = 0;
   for await (const c of req) {
@@ -27,7 +33,7 @@ async function readBody(req) {
     if (size > 12 * 1024 * 1024) fail(413, "Request body too large");
     chunks.push(c);
   }
-  return chunks.length ? safeJson(Buffer.concat(chunks).toString("utf8")) : {};
+  return chunks.length ? parse(Buffer.concat(chunks).toString("utf8")) : {};
 }
 function safeJson(s) {
   try { return s ? JSON.parse(s) : {}; } catch { fail(400, "Body must be JSON"); }

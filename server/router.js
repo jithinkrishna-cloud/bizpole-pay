@@ -7,6 +7,7 @@ const db = require("./db");
 const table = compile([
   ...authRoutes,
   ...require("./routes/public"),
+  ...require("./routes/pay"),
   ...require("./routes/payments"),
   ...require("./routes/links"),
   ...require("./routes/checkout"),
@@ -59,10 +60,11 @@ async function handle(req, res, path) {
     }
     const m = p.match(hit.re);
     const params = Object.fromEntries(hit.keys.map((k, i) => [k, decodeURIComponent(m[i + 1])]));
-    const body = ["POST", "PUT", "PATCH", "DELETE"].includes(req.method) ? await readBody(req) : {};
+    const body = ["POST", "PUT", "PATCH", "DELETE"].includes(req.method) ? await readBody(req, { form: !!hit.opts.form }) : {};
 
-    // Same-origin JSON only for writes (cheap CSRF guard on top of SameSite=Lax cookies).
-    if (req.method !== "GET" && !String(req.headers["content-type"] || "").includes("application/json") && req.headers["content-length"] !== "0")
+    // Same-origin JSON only for writes (cheap CSRF guard on top of SameSite=Lax cookies). Public provider callbacks
+    // (opts.form) accept form posts: they carry no session and are verified by the provider's signature instead.
+    if (req.method !== "GET" && !hit.opts.form && !String(req.headers["content-type"] || "").includes("application/json") && req.headers["content-length"] !== "0")
       throw new HttpError(415, "Send JSON");
 
     const auth = await getAuth(req);
@@ -72,12 +74,13 @@ async function handle(req, res, path) {
     const ctx = {
       req, res, params, query, body, auth,
       // Merchant routes default to test. Platform routes treat "all" or a missing mode as every mode.
-      mode: hit.opts.platform ? platformMode(query.mode) : db.dbMode(query.mode || body.mode || "test"),
+      // Public routes take no mode from the request (provider callbacks carry their own "mode" field, e.g. "UPI").
+      mode: hit.opts.public ? null : hit.opts.platform ? platformMode(query.mode) : db.dbMode(query.mode || body.mode || "test"),
       setHeader: (k, v) => (extra[k] = v),
     };
     const out = await hit.handler(ctx);
     if (out && out.__raw) {
-      res.writeHead(200, { "cache-control": "no-store", ...out.headers, ...extra });
+      res.writeHead(out.status || 200, { "cache-control": "no-store", ...out.headers, ...extra });
       return res.end(out.body);
     }
     send(res, 200, out === undefined ? { ok: true } : out, extra);

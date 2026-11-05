@@ -1,12 +1,13 @@
 // Payment links. Rows live in "PaymentLink"; payments against a link are Orders with paymentLinkId
-// whose Transactions reached SUCCESS. PayU's payment-link API is not wired yet, so links are stored
-// with url = null and payuActive = null until PayU issues them. No messaging provider exists, so there is
-// no send route; the page disables SMS / email / WhatsApp sending.
+// whose Transactions reached SUCCESS. Each link is a Bizpole Pay page, /pay/l/<slug> (server/routes/pay.js), so it
+// works with whichever provider connection is active. No messaging provider exists, so there is no send route;
+// the page disables SMS / email / WhatsApp sending.
 const db = require("../db");
 const { fail } = require("../http");
 const { audit, clientIp } = require("../auth");
 const { methodLabel, num } = require("../shape");
-const payu = require("../payu");
+const crypto = require("node:crypto");
+const core = require("../payments-core");
 
 const MAX_PAISE = 50000000; // ₹5,00,000
 const INVOICE = /^[A-Za-z0-9\-_/]{1,30}$/;
@@ -24,11 +25,12 @@ function uiStatus(l, paid, count) {
   return paid > 0 || l.status === "PARTIALLY_PAID" ? "PARTIALLY_PAID" : "ACTIVE";
 }
 
-async function list(merchantId, mode, id = null) {
+// base = public site address (core.baseUrl); the link URL is built from it, never stored.
+async function list(merchantId, mode, id = null, base = "") {
   const links = await db.query(
     `SELECT id, "invoiceNumber", url, description, "amountPaise", "isAmountFilledByCustomer", "isPartialPaymentAllowed",
             "minAmountForCustomerPaise", "maxPaymentsAllowed", "customerName", "customerEmail", "customerPhone",
-            status, "payuActive", "expiresAt", "createdAt"
+            status, "payuActive", slug, "expiresAt", "createdAt"
        FROM "PaymentLink" WHERE "merchantId"=$1 AND mode=$2 ${id ? "AND id=$3" : ""}
       ORDER BY "createdAt" DESC LIMIT 5000`,
     id ? [merchantId, mode, id] : [merchantId, mode]
@@ -47,7 +49,7 @@ async function list(merchantId, mode, id = null) {
     }));
     const paid = payments.reduce((a, p) => a + p.amount, 0);
     return {
-      id: l.id, invoiceNumber: l.invoiceNumber, url: l.url || null, desc: l.description,
+      id: l.id, invoiceNumber: l.invoiceNumber, url: l.slug ? `${base}/pay/l/${l.slug}` : l.url || null, desc: l.description,
       amount: l.isAmountFilledByCustomer ? null : num(l.amountPaise), customerAmount: l.isAmountFilledByCustomer,
       partial: l.isPartialPaymentAllowed, minAmount: num(l.minAmountForCustomerPaise), maxPayments: l.maxPaymentsAllowed,
       customer: l.customerName || "—", email: l.customerEmail || "", phone: l.customerPhone || "",
@@ -72,7 +74,7 @@ function expiryFrom(v) {
 }
 
 module.exports = [
-  ["GET", "/links", async ({ auth, mode }) => ({ links: await list(auth.merchantId, mode) })],
+  ["GET", "/links", async (ctx) => ({ links: await list(ctx.auth.merchantId, ctx.mode, null, core.baseUrl(ctx.req)) })],
 
   ["POST", "/links", async (ctx) => {
     const { auth, mode, body } = ctx;
@@ -104,7 +106,7 @@ module.exports = [
     let invoice = String(body.invoiceNumber || "").trim();
     if (invoice && !INVOICE.test(invoice)) fail(400, "Invoice number: use letters, numbers, - _ or / only.");
 
-    const cred = await payu.requireCredential(auth.merchantId, mode); // 409 with a readable message when missing
+    const cred = (await core.readyFor(auth.merchantId, mode)).account; // 409 with a readable message when payments can't be taken
     if (!invoice) invoice = ("PL-" + Date.now().toString(36) + db.id().slice(-4)).toUpperCase().slice(0, 30);
     const dup = await db.one(`SELECT 1 FROM "PaymentLink" WHERE "credentialId"=$1 AND "invoiceNumber"=$2`, [cred.id, invoice]);
     if (dup) fail(409, "This invoice number is already used by another link.");
@@ -113,14 +115,14 @@ module.exports = [
     await db.query(
       `INSERT INTO "PaymentLink" (id,"merchantId",mode,"credentialId","invoiceNumber",url,description,"amountPaise","isAmountFilledByCustomer",
          "isPartialPaymentAllowed","minAmountForCustomerPaise","maxPaymentsAllowed","customerName","customerEmail","customerPhone",
-         status,"payuActive","expiresAt","createdBy","updatedAt")
-       VALUES ($1,$2,$3,$4,$5,NULL,$6,$7,$8,$9,$10,$11,$12,$13,$14,'ACTIVE',NULL,$15,$16,now())`,
+         status,"payuActive",slug,"expiresAt","createdBy","updatedAt")
+       VALUES ($1,$2,$3,$4,$5,NULL,$6,$7,$8,$9,$10,$11,$12,$13,$14,'ACTIVE',NULL,$17,$15,$16,now())`,
       [id, auth.merchantId, mode, cred.id, invoice, desc, amount, customerAmount, partial, minAmount, max,
-        name || null, email || null, phone || null, expiresAt, auth.user.id]
+        name || null, email || null, phone || null, expiresAt, auth.user.id, crypto.randomBytes(16).toString("hex")]
     );
     await audit(db, { merchantId: auth.merchantId, userId: auth.user.id, mode, action: "payment_link.created", entity: "PaymentLink", entityId: id,
       ip: clientIp(ctx.req), meta: { invoiceNumber: invoice, amount, customerAmount } });
-    return (await list(auth.merchantId, mode, id))[0];
+    return (await list(auth.merchantId, mode, id, core.baseUrl(ctx.req)))[0];
   }, { roles: ["OWNER", "ADMIN", "FINANCE", "DEVELOPER", "SUPPORT"] }], // docs/MODULES.md: create payment link
 
   // Extend (or set) expiry. An EXPIRED link becomes ACTIVE again; deactivated links stay deactivated.
@@ -137,7 +139,7 @@ module.exports = [
     );
     await audit(db, { merchantId: ctx.auth.merchantId, userId: ctx.auth.user.id, mode: ctx.mode, action: "payment_link.expiry_changed", entity: "PaymentLink",
       entityId: l.id, ip: clientIp(ctx.req), meta: { from: l.expiresAt, to: expiresAt } });
-    return (await list(ctx.auth.merchantId, ctx.mode, l.id))[0];
+    return (await list(ctx.auth.merchantId, ctx.mode, l.id, core.baseUrl(ctx.req)))[0];
   }],
 
   ["POST", "/links/:id/deactivate", async (ctx) => {
@@ -146,7 +148,7 @@ module.exports = [
     await db.query(`UPDATE "PaymentLink" SET status='INACTIVE', "updatedAt"=now() WHERE id=$1`, [l.id]);
     await audit(db, { merchantId: ctx.auth.merchantId, userId: ctx.auth.user.id, mode: ctx.mode, action: "payment_link.deactivated", entity: "PaymentLink",
       entityId: l.id, ip: clientIp(ctx.req) });
-    return (await list(ctx.auth.merchantId, ctx.mode, l.id))[0];
+    return (await list(ctx.auth.merchantId, ctx.mode, l.id, core.baseUrl(ctx.req)))[0];
   }],
 
 ];

@@ -703,6 +703,8 @@ model ProviderConnection {
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
   settings    PaymentProvider[]
+  transactions  Transaction[]
+  inboundEvents InboundEvent[]
 }
 
 // Aggregator child merchant used for split settlements (create-child-merchant API).
@@ -857,6 +859,7 @@ model Order {
   udf5          String?      @db.VarChar(255)
   notes         Json?
   returnUrl     String?
+  payToken      String?      @unique // public token for /pay/<token>
   expiresAt     DateTime?
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
@@ -878,7 +881,10 @@ model Transaction {
   order                  Order             @relation(fields: [orderId, merchantId, mode], references: [id, merchantId, mode], onDelete: Restrict)
   credentialId           String
   credential             PayuCredential    @relation(fields: [credentialId, merchantId, mode], references: [id, merchantId, mode], onDelete: Restrict)
-  txnid                  String            @unique @db.VarChar(25)
+  connectionId           String?           // provider connection that handled this attempt (docs/PAYMENTS_CORE.md)
+  connection             ProviderConnection? @relation(fields: [connectionId], references: [id], onDelete: Restrict)
+  provider               String            @default("payu")
+  txnid                 String            @unique @db.VarChar(25)
   mihpayid               String?           // PayU id, text (docs return "Not Found" sentinels)
   amountPaise            BigInt
   payuAmount             String            // exact string sent/echoed, used in hashes
@@ -1065,6 +1071,7 @@ model PaymentLink {
   customerPhone           String?
   status                  PaymentLinkStatus @default(ACTIVE)
   payuActive              Boolean?
+  slug                    String?           @unique // public /pay/l/<slug>; URL built from APP_URL
   expiresAt               DateTime?
   createdBy               String?
   createdAt               DateTime          @default(now())
@@ -1302,6 +1309,8 @@ model InboundEvent {
   dedupeKey      String          @unique // sha256 of source + identifying fields + status
   merchantId     String?
   signatureValid Boolean?        // null when PayU provides no signature for this source
+  connectionId   String?
+  connection     ProviderConnection? @relation(fields: [connectionId], references: [id], onDelete: SetNull)
   payload        Json            // hash, salts, card data and credentials removed
   processing     EventProcessing @default(RECEIVED)
   error          String?

@@ -15,7 +15,8 @@ const log = (ctx, { merchantId = null, mode = null, action, entity, entityId, me
 const liveCheck = (ctx, mode, action) => (mode === "LIVE" ? confirmPassword(ctx, ctx.body.password, action) : null);
 
 /* ---------- provider connections ---------- */
-const getSettings = () => config.overview();
+// webhookBase: public address the provider posts webhooks to (APP_URL, else this request's host).
+const getSettings = async (ctx) => ({ ...(await config.overview()), webhookBase: require("../../payments-core").baseUrl(ctx.req) });
 
 async function createConnection(ctx) {
   const b = ctx.body || {};

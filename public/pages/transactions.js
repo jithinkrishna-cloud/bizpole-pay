@@ -41,7 +41,7 @@ PAGES.transactions = () => {
     <div class="page-h"><div><div class="row" style="gap:10px;flex-wrap:wrap;align-items:center"><h1 style="flex:none">Transactions overview</h1>
       <a class="chip brand" href="#/settlements">Total settlement amount: <b>${inr(settledTotal())}</b> <i data-icon=chevron-right class=li></i></a>
       <button class="chip" id="refresh">Last updated at <b id="upd">${now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</b> <i data-icon=refresh-cw class=li></i></button></div></div>
-      <div class="row" style="flex:none"><a class="btn" href="#/analytics"><i data-icon=chart-column class=li></i> View analytics</a></div></div>
+      <div class="row" style="flex:none"><a class="btn" href="#/analytics"><i data-icon=chart-column class=li></i> View analytics</a><button class="btn primary" id="collect">Collect payment</button></div></div>
     <div class="tabs"><button data-t="p">Payments</button><button data-t="r">Refunds</button><button data-t="b">Batch refunds</button></div>
     <div id="tview"></div>`;
 };
@@ -243,6 +243,7 @@ BIND.transactions = () => {
   if (liveLocked()) return;
   $('#promoX').onclick = () => $('#promo').remove();
   $('#refresh').onclick = async () => { $('#refresh').disabled = true; await reload(); toast('Transactions refreshed'); };
+  $('#collect').onclick = collectModal;
   document.querySelectorAll('[data-t]').forEach(b => b.onclick = () => showTxTab(b.dataset.t));
   showTxTab(tx.tab);
 };
@@ -250,6 +251,33 @@ BIND.transactions = () => {
 
 // Re-fetch this mode from the server, then reopen a drawer on the fresh data.
 async function txRefreshAnd(open){ await reload(); open(); }
+
+// "Collect payment": creates an order and shows the Bizpole Pay link to share (POST /orders).
+function collectModal(){
+  openModal(`<div class="lk-form"><div class="between"><h2 style="margin:0;font-size:20px">Collect a payment</h2><button class="x" onclick="closeAll()"><i data-icon=x class=li></i></button></div>
+    <p class="muted" style="margin:4px 0 12px">Creates a one-time payment page for ${state.mode === 'test' ? 'test mode (no real money moves)' : 'live mode'}. Share the link with your customer.</p>
+    <div class="g">
+      <div><label for="cp-amt">Amount (₹) *</label><input id="cp-amt" type="number" step="0.01" min="1" placeholder="0.00"></div>
+      <div><label for="cp-desc">What is it for? *</label><input id="cp-desc" maxlength="100" placeholder="Order #1024"></div>
+      <div class="full"><label for="cp-name">Customer name</label><input id="cp-name" maxlength="60" placeholder="Optional"></div>
+      <div><label for="cp-email">Email</label><input id="cp-email" type="email" placeholder="Optional"></div>
+      <div><label for="cp-phone">Mobile</label><input id="cp-phone" inputmode="numeric" maxlength="13" placeholder="Optional"></div>
+    </div>
+    <div id="cp-out"></div>
+    <div class="row" style="margin-top:16px;justify-content:flex-end;gap:8px"><button class="btn" onclick="closeAll()">Close</button><button class="btn primary" id="cp-go">Create payment link</button></div></div>`);
+  $('#cp-go').onclick = async () => {
+    const b = $('#cp-go'), amount = Math.round(Number(String($('#cp-amt').value).replace(/[,₹s]/g, '')) * 100);
+    b.disabled = true;
+    try {
+      const r = await api('/orders', { method: 'POST', body: { amount, description: $('#cp-desc').value, name: $('#cp-name').value, email: $('#cp-email').value, phone: $('#cp-phone').value } });
+      $('#cp-out').innerHTML = `<div class="card" style="margin-top:12px"><b>Payment link ready</b><div class="mono" style="word-break:break-all;margin:6px 0 10px;font-size:13px">${esc(r.checkoutUrl)}</div>
+        <div class="row" style="gap:8px"><button class="btn sm primary" id="cp-copy">Copy link</button><a class="btn sm" href="${esc(r.checkoutUrl)}" target="_blank" rel="noopener">Open</a></div></div>`;
+      $('#cp-copy').onclick = () => { navigator.clipboard && navigator.clipboard.writeText(r.checkoutUrl); toast('Link copied'); };
+      b.textContent = 'Create another'; b.disabled = false;
+      b.onclick = () => collectModal();
+    } catch (e) { b.disabled = false; apiFail(e); }
+  };
+}
 
 function refundDrawer(id){
   const r = refunds[state.mode].find(x => x.id === id);
@@ -300,11 +328,17 @@ function txnDrawer(id){
       <div id="txtl">${d ? txnTimeline(d) : '<p class="muted" style="font-size:13px;margin:4px 0">Loading status history…</p>'}</div>
       <div class="row" style="margin-top:20px">
         ${t.status === 'SUCCESS' && refundable > 0 ? `<button class="btn primary" id="rfb">Issue refund</button>` : ''}
-        ${['PENDING', 'INITIATED'].includes(t.status) ? `<button class="btn" id="txre"><i data-icon=refresh-cw class=li></i> Refresh status</button>` : ''}
+        ${t.status !== 'SUCCESS' ? `<button class="btn" id="txre"><i data-icon=refresh-cw class=li></i> Check status</button>` : ''}
         <button class="btn" id="txcp">Copy Txn ID</button>
       </div>`);
     const b = $('#rfb'); if (b) b.onclick = () => refundModal(t);
-    const re = $('#txre'); if (re) re.onclick = () => { re.disabled = true; txRefreshAnd(() => txnDrawer(id)); };
+    // Asks the gateway for the payment's real status, then reloads the list.
+    const re = $('#txre'); if (re) re.onclick = async () => {
+      re.disabled = true;
+      try { const r = await api('/transactions/' + encodeURIComponent(t.txnid) + '/verify', { method: 'POST' }); toast(r.found ? 'Status updated' : 'No payment was made for this attempt yet'); }
+      catch (e) { re.disabled = false; return apiFail(e); }
+      txRefreshAnd(() => txnDrawer(id));
+    };
     $('#txcp').onclick = () => { navigator.clipboard && navigator.clipboard.writeText(t.txnid); toast('Txn ID copied'); };
   };
   if (base) paint(base, null);
